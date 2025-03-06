@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  code-runner-api:
+    build:
+      context: .
+      dockerfile: builds/api/Dockerfile
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./tmp:/app/tmp
+    environment:
+      - APP_ENV=production
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - ETCD_ENDPOINTS=etcd:2379
+    ports:
+      - "8080:8080"
+    networks:
+      - code-runner-net
+    depends_on:
+      - etcd
+
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.11
+    command: etcd -advertise-client-urls http://0.0.0.0:2379 -listen-client-urls http://0.0.0.0:2379
+    ports:
+      - "2379:2379"  # etcd 客户端端口
+      - "2380:2380"  # etcd 对等端口
+    volumes:
+      - etcd-data:/etcd-data  # 添加数据持久化
+    networks:
+      - code-runner-net
+
+  # 以下服务仅用于构建镜像，不自动运行
+  go-runner:
+    image: code-runner-go:latest
+    build:
+      context: .
+      dockerfile: builds/runners/go.Dockerfile
+    profiles: ["build-only"]
+
+  python-runner:
+    image: code-runner-python:latest
+    build:
+      context: .
+      dockerfile: builds/runners/python.Dockerfile
+    profiles: ["build-only"]
+
+  cpp-runner:
+    image: code-runner-cpp:latest
+    build:
+      context: .
+      dockerfile: builds/runners/cpp.Dockerfile
+    profiles: ["build-only"]
+
+  java-runner:
+    image: code-runner-java:latest
+    build:
+      context: .
+      dockerfile: builds/runners/java.Dockerfile
+    profiles: ["build-only"]
+
+networks:
+  code-runner-net:
+    driver: bridge
+
+volumes:
+  etcd-data:

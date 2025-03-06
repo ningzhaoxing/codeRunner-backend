@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package codeRunner.v1;
+
+// 指定 Go 包的路径
+option go_package = ".;proto";
+
+service CodeRunner {
+  rpc Execute (ExecuteRequest) returns (ExecuteResponse) {
+
+  };
+
+}
+
+message ExecuteRequest {
+  string language = 1;
+  string codeBlock = 2;
+}
+
+message ExecuteResponse {
+  string code = 1;
+  string msg = 2;
+}
