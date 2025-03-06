@@ -1,7 +1,6 @@
 package eneity
 
 import (
-	"codeRunner-siwu/internal/infrastructure/common/utils"
 	"fmt"
 	"github.com/gorilla/websocket"
 	"log"
@@ -12,10 +11,9 @@ type UserClient struct {
 	conn *websocket.Conn
 }
 
-func NewUserClient(conn *websocket.Conn) *UserClient {
-	uuid, _ := utils.GetUuid()
+func NewUserClient(conn *websocket.Conn, id string) *UserClient {
 	return &UserClient{
-		id:   uuid,
+		id:   id,
 		conn: conn,
 	}
 }
@@ -32,6 +30,11 @@ func (u *UserClient) Read() error {
 }
 
 // Send 发送消息
-//func (u *UserClient) Send() {
-//	u.conn.WriteMessage()
-//}
+func (u *UserClient) Send(msg string) error {
+	err := u.conn.WriteMessage(websocket.TextMessage, []byte(msg))
+	if err != nil {
+		log.Println("userClient消息读取失败", err)
+		return err
+	}
+	return nil
+}

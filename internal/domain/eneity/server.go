@@ -9,8 +9,8 @@ import (
 )
 
 type Server struct {
-	userClients       sync.Map
-	innerServerClient *websocket.Conn
+	userClients       sync.Map        // 存储用户客户端conn
+	innerServerClient *websocket.Conn // 内网服务器conn
 }
 
 // NewServer 创建服务端

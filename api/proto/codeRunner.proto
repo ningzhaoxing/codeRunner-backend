@@ -7,14 +7,13 @@ option go_package = ".;proto";
 
 service CodeRunner {
   rpc Execute (ExecuteRequest) returns (ExecuteResponse) {
-
   };
-
 }
 
 message ExecuteRequest {
-  string language = 1;
-  string codeBlock = 2;
+  string id = 1;
+  string language = 2;
+  string codeBlock = 3;
 }
 
 message ExecuteResponse {
