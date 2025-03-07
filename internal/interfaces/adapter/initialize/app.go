@@ -1,10 +1,10 @@
 package initialize
 
 import (
+	"codeRunner-siwu/internal/interfaces/controller/rpc"
 	"context"
 	"fmt"
 	clientv3 "go.etcd.io/etcd/client/v3"
-	"google.golang.org/grpc"
 	"log"
 	"net"
 	"os"
@@ -25,8 +25,8 @@ func Run() {
 	// 启动路由
 	InitEngine()
 
-	// 注册etcd服务
-	etcdClient, err := InitEtcd(ctx, c)
+	// 将grpc服务注册到etcd
+	etcdClient, err := EtcdRegister(ctx, c)
 	if err != nil {
 		panic("服务注册失败" + err.Error())
 	}
@@ -44,8 +44,8 @@ func Run() {
 		panic("grpc服务启动失败" + err.Error())
 	}
 
-	// 创建grpc服务
-	s := grpc.NewServer()
+	// 注册grpc服务
+	s := rpc.Register()
 
 	// 优雅关机
 	go func() {

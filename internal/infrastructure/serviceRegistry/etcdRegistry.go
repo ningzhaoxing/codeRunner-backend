@@ -3,6 +3,7 @@ package serviceRegistry
 import (
 	"context"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"log"
 	"time"
 )
 
@@ -30,11 +31,11 @@ func NewEtcdRegistry(endpoints []string, key, value string) (*EtcdRegistry, erro
 
 // Register 注册服务
 func (r *EtcdRegistry) Register(ctx context.Context, ttl int64) error {
+
 	// 1. 创建租约
 	lease := clientv3.NewLease(r.Client)
 
 	grantResp, err := lease.Grant(ctx, ttl)
-
 	if err != nil {
 		return err
 	}
@@ -55,7 +56,7 @@ func (r *EtcdRegistry) Register(ctx context.Context, ttl int64) error {
 	// 4. 监听续约响应
 	go func() {
 		for range keepAliveCh {
-			// 续约成功，若通道关闭则需重新注册
+			log.Println(<-keepAliveCh)
 		}
 	}()
 	return nil
