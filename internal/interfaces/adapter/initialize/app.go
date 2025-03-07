@@ -22,6 +22,9 @@ func Run() {
 		return
 	}
 
+	// 启动路由
+	InitEngine()
+
 	// 注册etcd服务
 	etcdClient, err := InitEtcd(ctx, c)
 	if err != nil {
