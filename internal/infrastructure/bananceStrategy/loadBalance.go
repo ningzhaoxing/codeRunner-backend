@@ -1,8 +1,8 @@
 package bananceStrategy
 
 type LoadBalance interface {
-	Add(int, int64)
-	Get() (int, error)
-	Remove(int)
-	UpdateWeight(int, int64)
+	Add(*WeightNode)
+	Get() (*WeightNode, error)
+	Remove(string)
+	UpdateWeight(string, int64)
 }

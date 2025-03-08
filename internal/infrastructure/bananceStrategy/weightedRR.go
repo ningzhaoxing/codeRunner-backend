@@ -1,11 +1,23 @@
 package bananceStrategy
 
-import "codeRunner-siwu/internal/infrastructure/common/errors"
+import (
+	"codeRunner-siwu/internal/infrastructure/common/errors"
+	"github.com/gorilla/websocket"
+)
 
 type WeightNode struct {
-	serverId  int   // 服务器id
+	serverId  string // 服务器id
+	conn      *websocket.Conn
 	curWeight int64 // 当前权重
 	weight    int64 // 初始权重
+}
+
+func NewWeightNode(serverId string, conn *websocket.Conn, weight int64) *WeightNode {
+	return &WeightNode{
+		serverId: serverId,
+		conn:     conn,
+		weight:   weight,
+	}
 }
 
 type WeightedRR struct {
@@ -20,20 +32,16 @@ func NewWeightedRR() *WeightedRR {
 	}
 }
 
-func (w *WeightedRR) Add(serverId int, weight int64) {
+func (w *WeightedRR) Add(rr *WeightNode) {
 	w.nodes = append(w.nodes, &WeightNode{
-		serverId:  serverId,
+		serverId:  rr.serverId,
 		curWeight: 0,
-		weight:    weight,
+		weight:    rr.weight,
 	})
-	w.totalWeight += weight
+	w.totalWeight += rr.weight
 }
 
-func (w *WeightedRR) Get() (int, error) {
-	return w.Next()
-}
-
-func (w *WeightedRR) Remove(serverId int) {
+func (w *WeightedRR) Remove(serverId string) {
 	for i, node := range w.nodes {
 		if node.serverId == serverId {
 			w.nodes = append(w.nodes[:i], w.nodes[i+1:]...)
@@ -41,7 +49,7 @@ func (w *WeightedRR) Remove(serverId int) {
 	}
 }
 
-func (w *WeightedRR) UpdateWeight(serverId int, weight int64) {
+func (w *WeightedRR) UpdateWeight(serverId string, weight int64) {
 	for _, node := range w.nodes {
 		if node.serverId == serverId {
 			// 平滑过渡：保留原有currentWeight的50%
@@ -52,9 +60,9 @@ func (w *WeightedRR) UpdateWeight(serverId int, weight int64) {
 	}
 }
 
-func (w *WeightedRR) Next() (int, error) {
+func (w *WeightedRR) Next() (*WeightNode, error) {
 	if len(w.nodes) == 0 {
-		return -1, errors.NotFoundEffectiveServer
+		return nil, errors.NotFoundEffectiveServer
 	}
 
 	var best *WeightNode
@@ -68,5 +76,9 @@ func (w *WeightedRR) Next() (int, error) {
 	}
 
 	best.curWeight -= w.totalWeight
-	return best.serverId, nil
+	return best, nil
+}
+
+func (w *WeightedRR) Get() (*WeightNode, error) {
+	return w.Next()
 }

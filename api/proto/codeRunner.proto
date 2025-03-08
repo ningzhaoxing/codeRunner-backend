@@ -14,10 +14,12 @@ message ExecuteRequest {
   string id = 1;
   string language = 2;
   string codeBlock = 3;
+  string callBackUrl = 4;
 }
 
 message ExecuteResponse {
   string id = 1;
-  string code = 2;
-  string msg = 3;
+  string grpcCode = 2;
+  string result = 3;
+  string callBackUrl = 4;
 }
