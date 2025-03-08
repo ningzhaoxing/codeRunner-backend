@@ -1,8 +1,10 @@
 package bananceStrategy
 
+import "codeRunner-siwu/internal/infrastructure/bananceStrategy/weightedRRBalance"
+
 type LoadBalance interface {
-	Add(*WeightNode)
-	Get() (*WeightNode, error)
+	Add(*weightedRRBalance.WeightNode)
+	Get() (*weightedRRBalance.WeightNode, error)
 	Remove(string)
 	UpdateWeight(string, int64)
 }

@@ -2,12 +2,13 @@ package entity
 
 import (
 	"codeRunner-siwu/internal/infrastructure/bananceStrategy"
+	"codeRunner-siwu/internal/infrastructure/bananceStrategy/weightedRRBalance"
 	"sync"
 )
 
 type LoadBalanceDomain interface {
-	GetServer() (*bananceStrategy.WeightNode, error)
-	AddServer(server *bananceStrategy.WeightNode)
+	GetServer() (*weightedRRBalance.WeightNode, error)
+	AddServer(server *weightedRRBalance.WeightNode)
 	RemoveServer(string)
 	UpdateServerWeight(string, int64)
 }
@@ -18,20 +19,20 @@ type WeightedRR struct {
 }
 
 func NewWeightedRR() *WeightedRR {
-	weightedRR := bananceStrategy.NewWeightedRR()
+	weightedRR := weightedRRBalance.NewWeightedRR()
 	return &WeightedRR{
 		LoadBalance: weightedRR,
 		rw:          sync.RWMutex{},
 	}
 }
 
-func (s *WeightedRR) GetServer() (*bananceStrategy.WeightNode, error) {
+func (s *WeightedRR) GetServer() (*weightedRRBalance.WeightNode, error) {
 	s.rw.Lock()
 	defer s.rw.Unlock()
 	return s.Get()
 }
 
-func (s *WeightedRR) AddServer(server *bananceStrategy.WeightNode) {
+func (s *WeightedRR) AddServer(server *weightedRRBalance.WeightNode) {
 	s.rw.Lock()
 	defer s.rw.Unlock()
 	s.Add(server)

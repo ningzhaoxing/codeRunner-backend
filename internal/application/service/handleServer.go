@@ -2,7 +2,7 @@ package service
 
 import (
 	"codeRunner-siwu/internal/domain/loadBalance/entity"
-	"codeRunner-siwu/internal/infrastructure/bananceStrategy"
+	"codeRunner-siwu/internal/infrastructure/bananceStrategy/weightedRRBalance"
 	"codeRunner-siwu/internal/infrastructure/common/utils"
 	"github.com/gorilla/websocket"
 )
@@ -23,7 +23,7 @@ func (h *HandleServer) RegisterServerLoadBalance(conn *websocket.Conn) error {
 	if err != nil {
 		return err
 	}
-	h.AddServer(bananceStrategy.NewWeightNode(serverId, conn, 1))
+	h.AddServer(weightedRRBalance.NewWeightNode(serverId, conn, 1))
 
 	return nil
 }

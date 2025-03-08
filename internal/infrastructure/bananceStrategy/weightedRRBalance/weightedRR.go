@@ -1,24 +1,8 @@
-package bananceStrategy
+package weightedRRBalance
 
 import (
 	"codeRunner-siwu/internal/infrastructure/common/errors"
-	"github.com/gorilla/websocket"
 )
-
-type WeightNode struct {
-	serverId  string // 服务器id
-	conn      *websocket.Conn
-	curWeight int64 // 当前权重
-	weight    int64 // 初始权重
-}
-
-func NewWeightNode(serverId string, conn *websocket.Conn, weight int64) *WeightNode {
-	return &WeightNode{
-		serverId: serverId,
-		conn:     conn,
-		weight:   weight,
-	}
-}
 
 type WeightedRR struct {
 	nodes       []*WeightNode // 所有的服务实例
@@ -27,7 +11,7 @@ type WeightedRR struct {
 
 func NewWeightedRR() *WeightedRR {
 	return &WeightedRR{
-		nodes:       nil,
+		nodes:       make([]*WeightNode, 0),
 		totalWeight: 0,
 	}
 }
