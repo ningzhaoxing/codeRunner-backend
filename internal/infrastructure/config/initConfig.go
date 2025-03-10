@@ -2,7 +2,7 @@ package config
 
 import "github.com/spf13/viper"
 
-var configPath = "./configs/config.yaml"
+var configPath = "./configs/configOutServer.yaml"
 
 type Config struct {
 	Grpc Grpc `yaml:"grpc"`

@@ -2,6 +2,7 @@ package initialize
 
 import (
 	"codeRunner-siwu/internal/interfaces/controller/rpc"
+	"codeRunner-siwu/internal/interfaces/controller/ws"
 	"context"
 	"fmt"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -12,7 +13,7 @@ import (
 	"syscall"
 )
 
-func Run() {
+func RunServer() {
 	ctx := context.Background()
 
 	// 初始化配置
@@ -58,5 +59,24 @@ func Run() {
 	fmt.Println("server running...")
 	if err := s.Serve(lis); err != nil {
 		log.Println("server-->" + err.Error())
+	}
+}
+
+func RunClient() {
+	ctx := context.Background()
+
+	// 初始化配置
+	c, err := InitConfig()
+	if err != nil {
+		panic("配置文件解析错误" + err.Error())
+		return
+	}
+
+	client, err := ws.NewInnerServerClient(c, ctx)
+	if err != nil {
+		panic(fmt.Sprintf("服务启动失败err=%s", err))
+	}
+	if err := client.Run(); err != nil {
+		panic(fmt.Sprintf("服务启动失败err=%s", err))
 	}
 }

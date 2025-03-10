@@ -1,7 +1,6 @@
 package rpc
 
 import (
-	"codeRunner-siwu/api/proto"
 	"google.golang.org/grpc"
 )
 
@@ -9,8 +8,8 @@ import (
 func Register() *grpc.Server {
 	s := grpc.NewServer()
 
-	serve := CodeRunner{}
-	proto.RegisterCodeRunnerServer(s, &serve)
+	//serve := CodeRunner{}
+	//proto.RegisterCodeRunnerServer(s, &serve)
 
 	return s
 }

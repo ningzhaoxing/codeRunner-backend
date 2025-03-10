@@ -14,6 +14,10 @@ import (
 	"strings"
 )
 
+type DockerContainerDomain interface {
+	RunCode(request *proto.ExecuteRequest) (response proto.ExecuteResponse, err error)
+}
+
 type dockerContainerClient struct {
 	ctx context.Context
 	cli *client.Client
