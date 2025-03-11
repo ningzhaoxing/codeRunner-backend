@@ -1,45 +1,36 @@
-package serverManage
+package service
 
 import (
 	"codeRunner-siwu/api/proto"
-	"codeRunner-siwu/internal/domain/server/entity/containerManage"
+	"codeRunner-siwu/internal/domain/client/entity"
 	"codeRunner-siwu/internal/infrastructure/websocket/innerServer"
 	"context"
-	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 	"log"
 )
 
 type InnerServerClient interface {
 	Dail(innerServer.TargetServer) error
 	Read() (*proto.ExecuteRequest, error)
-	Send(*proto.ExecuteResponse) error
+	SendToServer(*proto.ExecuteResponse) error
 	RunCode(*proto.ExecuteRequest) (*proto.ExecuteResponse, error)
 }
 
 type InnerServer struct {
-	id string
-	containerManage.DockerContainerDomain
+	id   string
+	conn *websocket.Conn
+	entity.DockerContainerDomain
 	innerServer.ServerClient
 }
 
-// New 内网服务器使用的对象
-func New(ctx context.Context) (*InnerServer, error) {
+func NewInnerServer(ctx context.Context) (*InnerServer, error) {
 	// 创建docker对象
-	dockerContainer, err := containerManage.NewDockerClient(ctx)
+	dockerContainer, err := entity.NewDockerClient(ctx)
 	if err != nil {
 		log.Println(err)
 		return nil, err
 	}
 	return &InnerServer{ServerClient: innerServer.NewInnerServerClient(), DockerContainerDomain: dockerContainer}, nil
-}
-
-// NewInnerServer 服务端使用的对象
-func NewInnerServer() *InnerServer {
-	// 签发uuid
-	id := uuid.NewString()
-	return &InnerServer{
-		id: id,
-	}
 }
 
 func (i *InnerServer) Dail(targetServer innerServer.TargetServer) error {
@@ -67,8 +58,8 @@ func (i *InnerServer) Read() (*proto.ExecuteRequest, error) {
 	return msg, nil
 }
 
-func (i *InnerServer) Send(response *proto.ExecuteResponse) error {
-	if err := i.ServerClient.Send(response); err != nil {
+func (i *InnerServer) SendToServer(response *proto.ExecuteResponse) error {
+	if err := i.ServerClient.SendToServer(response); err != nil {
 		return err
 	}
 	return nil
@@ -76,4 +67,8 @@ func (i *InnerServer) Send(response *proto.ExecuteResponse) error {
 
 func (i *InnerServer) GetId() string {
 	return i.id
+}
+
+func (i *InnerServer) GetConn() *websocket.Conn {
+	return i.conn
 }

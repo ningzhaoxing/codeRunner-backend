@@ -15,7 +15,7 @@ import (
 type ServerClient interface {
 	Dail(TargetServer) error
 	Read() (*proto.ExecuteRequest, error)
-	Send(*proto.ExecuteResponse) error
+	SendToServer(*proto.ExecuteResponse) error
 }
 
 type InnerServerClient struct {
@@ -31,7 +31,8 @@ func (i *InnerServerClient) Dail(targetServer TargetServer) error {
 		HandshakeTimeout: 10 * time.Second,
 	}
 
-	url := fmt.Sprintf("ws://%s:%s/%s", targetServer.host, targetServer.port, targetServer.path)
+	url := fmt.Sprintf("ws://%s:%s/%s/%s", targetServer.host, targetServer.port, targetServer.path, targetServer.rowQuery)
+	fmt.Println(url)
 	conn, _, err := dialer.Dial(url, nil)
 	if err != nil {
 		log.Println("内网服务器客户端发起链接失败 err=", err)
@@ -56,7 +57,7 @@ func (i *InnerServerClient) Read() (*proto.ExecuteRequest, error) {
 	return msg, nil
 }
 
-func (i *InnerServerClient) Send(msg *proto.ExecuteResponse) error {
+func (i *InnerServerClient) SendToServer(msg *proto.ExecuteResponse) error {
 	data, err := json.Marshal(*msg)
 	if err != nil {
 		return err

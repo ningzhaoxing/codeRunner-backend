@@ -2,31 +2,32 @@ package service
 
 import (
 	"codeRunner-siwu/api/proto"
-	"codeRunner-siwu/internal/domain/server/entity/serverManage"
+	"codeRunner-siwu/internal/domain/client/service"
 	"codeRunner-siwu/internal/infrastructure/config"
 	"codeRunner-siwu/internal/infrastructure/websocket/innerServer"
 	"context"
+	"fmt"
 )
 
 type RunCode interface {
-	Run() error
+	Run(int64) error
 }
 
 type WebsocketClient struct {
 	config *config.Config
-	serverManage.InnerServerClient
+	service.InnerServerClient
 }
 
 func NewWebsocketClient(config *config.Config, ctx context.Context) (*WebsocketClient, error) {
-	client, err := serverManage.New(ctx)
+	client, err := service.NewInnerServer(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return &WebsocketClient{config: config, InnerServerClient: client}, nil
 }
 
-func (w *WebsocketClient) dail() error {
-	targetServer := innerServer.NewTargetServer(w.config.Grpc.Host, w.config.Grpc.Port, "/ws")
+func (w *WebsocketClient) dail(weight int64) error {
+	targetServer := innerServer.NewTargetServer(w.config.Grpc.Host, w.config.Grpc.Port, fmt.Sprintf("weight=%d", weight), "/ws")
 
 	err := w.InnerServerClient.Dail(*targetServer)
 	if err != nil {
@@ -36,14 +37,14 @@ func (w *WebsocketClient) dail() error {
 }
 
 func (w *WebsocketClient) send(res *proto.ExecuteResponse) error {
-	if err := w.InnerServerClient.Send(res); err != nil {
+	if err := w.InnerServerClient.SendToServer(res); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (w *WebsocketClient) Run() error {
-	if err := w.dail(); err != nil {
+func (w *WebsocketClient) Run(weight int64) error {
+	if err := w.dail(weight); err != nil {
 		return err
 	}
 

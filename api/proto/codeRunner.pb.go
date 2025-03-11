@@ -274,7 +274,7 @@ func (c *codeRunnerClient) Execute(ctx context.Context, in *ExecuteRequest, opts
 	return out, nil
 }
 
-// CodeRunnerServer is the server API for CodeRunner service.
+// CodeRunnerServer is the client API for CodeRunner service.
 type CodeRunnerServer interface {
 	Execute(context.Context, *ExecuteRequest) (*ExecuteResponse, error)
 }

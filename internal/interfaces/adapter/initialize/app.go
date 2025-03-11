@@ -56,9 +56,9 @@ func RunServer() {
 		s.GracefulStop()
 	}()
 
-	fmt.Println("server running...")
+	fmt.Println("client running...")
 	if err := s.Serve(lis); err != nil {
-		log.Println("server-->" + err.Error())
+		log.Println("client-->" + err.Error())
 	}
 }
 
@@ -72,11 +72,14 @@ func RunClient() {
 		return
 	}
 
-	client, err := ws.NewInnerServerClient(c, ctx)
+	// 自定义权重
+	var weight int64 = 1
+
+	client, err := ws.NewInnerServerClient(c, ctx, weight)
 	if err != nil {
-		panic(fmt.Sprintf("服务启动失败err=%s", err))
+		panic(fmt.Sprintf("服务启动失败err=%s\n", err))
 	}
 	if err := client.Run(); err != nil {
-		panic(fmt.Sprintf("服务启动失败err=%s", err))
+		panic(fmt.Sprintf("服务启动失败err=%s\n", err))
 	}
 }
