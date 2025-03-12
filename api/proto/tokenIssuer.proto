@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package codeRunner.v1;
+
+// 指定 Go 包的路径
+option go_package = ".;proto";
+
+service tokenIssuer
+{
+rpc GenerateToken  (GenerateTokenRequest) returns (GenerateTokenResponse) {
+};
+}
+
+message GenerateTokenRequest {
+string name = 1;
+string password = 2;
+
+}
+
+message GenerateTokenResponse {
+string token = 1;
+}
