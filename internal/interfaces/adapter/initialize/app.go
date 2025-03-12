@@ -23,6 +23,9 @@ func RunServer() {
 		return
 	}
 
+	// 初始化日志
+	InitLogger()
+
 	// 启动路由
 	InitEngine()
 
@@ -71,6 +74,9 @@ func RunClient() {
 		panic("配置文件解析错误" + err.Error())
 		return
 	}
+
+	// 初始化日志
+	InitLogger()
 
 	// 自定义权重
 	var weight int64 = 1

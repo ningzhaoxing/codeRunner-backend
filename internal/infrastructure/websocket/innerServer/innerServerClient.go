@@ -13,25 +13,43 @@ import (
 )
 
 type ServerClient interface {
-	Dail(TargetServer) error
-	Read() (*proto.ExecuteRequest, error)
-	SendToServer(*proto.ExecuteResponse) error
+	Dail(TargetServer) error                   // websocket客户端启动
+	Read() (*proto.ExecuteRequest, error)      // 读取消息
+	SendToServer(*proto.ExecuteResponse) error // 发送消息到websocket服务端
 }
 
 type InnerServerClient struct {
-	conn *websocket.Conn
+	conn          *websocket.Conn // websocket连接
+	pingPeriod    time.Duration   // 心跳检测时间间隔
+	pongWait      time.Duration   // 心跳响应等待时间
+	stopPingCh    chan struct{}   // 用于通知心跳检测结束
+	reconnectWait time.Duration   // 重连等待时间
+	targetServer  TargetServer    // 目标服务器
 }
 
 func NewInnerServerClient() *InnerServerClient {
-	return &InnerServerClient{}
+	return &InnerServerClient{
+		// 设置默认心跳参数
+		pingPeriod: 30 * time.Second,
+		pongWait:   60 * time.Second,
+		stopPingCh: make(chan struct{}),
+		// 设置重连等待时间
+		reconnectWait: 5 * time.Second,
+	}
 }
 
 func (i *InnerServerClient) Dail(targetServer TargetServer) error {
+	i.targetServer = targetServer
+	return i.connect()
+}
+
+// 连接方法
+func (i *InnerServerClient) connect() error {
 	dialer := websocket.Dialer{
 		HandshakeTimeout: 10 * time.Second,
 	}
 
-	url := fmt.Sprintf("ws://%s:%s/%s/%s", targetServer.host, targetServer.port, targetServer.path, targetServer.rowQuery)
+	url := fmt.Sprintf("ws://%s:%s/%s/%s", i.targetServer.host, i.targetServer.port, i.targetServer.path, i.targetServer.rowQuery)
 	fmt.Println(url)
 	conn, _, err := dialer.Dial(url, nil)
 	if err != nil {
@@ -40,7 +58,54 @@ func (i *InnerServerClient) Dail(targetServer TargetServer) error {
 	}
 
 	i.conn = conn
+
+	// 设置 pong 处理器
+	i.conn.SetPongHandler(func(string) error {
+		return i.conn.SetReadDeadline(time.Now().Add(i.pongWait))
+	})
+
+	// 启动心跳检测
+	go i.startPing()
+
 	return nil
+}
+
+// 重连方法
+func (i *InnerServerClient) reconnect() error {
+	i.conn.Close()
+
+	for {
+		log.Println("尝试重新连接...")
+		err := i.connect()
+		if err == nil {
+			log.Println("重连成功")
+			return nil
+		}
+		log.Printf("重连失败: %v, %d秒后重试\n", err, i.reconnectWait/time.Second)
+		time.Sleep(i.reconnectWait)
+	}
+}
+
+// 心跳检测方法
+func (i *InnerServerClient) startPing() {
+	ticker := time.NewTicker(i.pingPeriod)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			if err := i.sendPing(); err != nil {
+				log.Println("发送心跳失败:", err)
+				// 心跳失败时尝试重连
+				if err := i.reconnect(); err != nil {
+					log.Println("重连失败，停止心跳检测")
+					return
+				}
+			}
+		case <-i.stopPingCh:
+			return
+		}
+	}
 }
 
 func (i *InnerServerClient) Read() (*proto.ExecuteRequest, error) {
@@ -75,4 +140,14 @@ func (i *InnerServerClient) SendToServer(msg *proto.ExecuteResponse) error {
 		return errors.ResultSendFail
 	}
 	return nil
+}
+
+func (i *InnerServerClient) sendPing() error {
+	return i.conn.WriteControl(websocket.PingMessage, []byte{}, time.Now())
+}
+
+func (i *InnerServerClient) Close() error {
+	// 停止心跳检测
+	close(i.stopPingCh)
+	return i.conn.Close()
 }

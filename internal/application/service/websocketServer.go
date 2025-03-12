@@ -9,7 +9,7 @@ import (
 )
 
 type RunServer interface {
-	Add(*websocket.Conn, int64)
+	Add(*websocket.Conn, int64) string
 	Remove(string)
 	Execute(in *proto.ExecuteRequest) error
 }
@@ -24,8 +24,10 @@ func NewWebsocketServer() *WebsocketServer {
 	}
 }
 
-func (w *WebsocketServer) Add(conn *websocket.Conn, weight int64) {
-	w.ClientManagerDomain.Add(entity.NewClient(conn), weight)
+func (w *WebsocketServer) Add(conn *websocket.Conn, weight int64) string {
+	client := entity.NewClient(conn)
+	w.ClientManagerDomain.Add(client, weight)
+	return client.GetId()
 }
 
 func (w *WebsocketServer) Remove(id string) {
