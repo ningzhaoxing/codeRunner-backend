@@ -11,6 +11,9 @@ import (
 
 func UnaryInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		if info.FullMethod == "/codeRunner.v1.tokenIssuer/GenerateToken" {
+			return handler(ctx, req)
+		}
 		// 从上下文中获取元数据
 		md, ok := metadata.FromIncomingContext(ctx)
 		if !ok {
