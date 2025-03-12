@@ -1,4 +1,4 @@
-package innerServer
+package client
 
 type TargetServer struct {
 	host     string

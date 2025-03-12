@@ -1,41 +1,40 @@
-package service
+package entity
 
 import (
 	"codeRunner-siwu/api/proto"
-	"codeRunner-siwu/internal/domain/client/entity"
-	"codeRunner-siwu/internal/infrastructure/websocket/innerServer"
+	"codeRunner-siwu/internal/infrastructure/websocket/client"
 	"context"
 	"github.com/gorilla/websocket"
 	"log"
 )
 
-type InnerServerClient interface {
-	Dail(innerServer.TargetServer) error
+type InnerServerDomain interface {
+	Dail(client.TargetServer) error
 	Read() (*proto.ExecuteRequest, error)
-	SendToServer(*proto.ExecuteResponse) error
+	Send(*proto.ExecuteResponse) error
 	RunCode(*proto.ExecuteRequest) (*proto.ExecuteResponse, error)
 }
 
 type InnerServer struct {
 	id   string
 	conn *websocket.Conn
-	entity.DockerContainerDomain
-	innerServer.ServerClient
+	DockerContainer
+	client.WebsocketClient
 }
 
 func NewInnerServer(ctx context.Context) (*InnerServer, error) {
 	// 创建docker对象
-	dockerContainer, err := entity.NewDockerClient(ctx)
+	dockerContainer, err := NewDockerClient(ctx)
 	if err != nil {
 		log.Println(err)
 		return nil, err
 	}
-	return &InnerServer{ServerClient: innerServer.NewInnerServerClient(), DockerContainerDomain: dockerContainer}, nil
+	return &InnerServer{WebsocketClient: client.NewInnerServerClient(), DockerContainer: dockerContainer}, nil
 }
 
-func (i *InnerServer) Dail(targetServer innerServer.TargetServer) error {
+func (i *InnerServer) Dail(targetServer client.TargetServer) error {
 	// 初始化websocket连接
-	if err := innerServer.NewInnerServerClient().Dail(targetServer); err != nil {
+	if err := client.NewInnerServerClient().Dail(targetServer); err != nil {
 		log.Println(err)
 		return err
 	}
@@ -43,7 +42,7 @@ func (i *InnerServer) Dail(targetServer innerServer.TargetServer) error {
 }
 
 func (i *InnerServer) RunCode(request *proto.ExecuteRequest) (*proto.ExecuteResponse, error) {
-	response, err := i.DockerContainerDomain.RunCode(request)
+	response, err := i.DockerContainer.RunCode(request)
 	if err != nil {
 		return nil, err
 	}
@@ -51,15 +50,15 @@ func (i *InnerServer) RunCode(request *proto.ExecuteRequest) (*proto.ExecuteResp
 }
 
 func (i *InnerServer) Read() (*proto.ExecuteRequest, error) {
-	msg, err := i.ServerClient.Read()
+	msg, err := i.WebsocketClient.Read()
 	if err != nil {
 		return nil, err
 	}
 	return msg, nil
 }
 
-func (i *InnerServer) SendToServer(response *proto.ExecuteResponse) error {
-	if err := i.ServerClient.SendToServer(response); err != nil {
+func (i *InnerServer) Send(response *proto.ExecuteResponse) error {
+	if err := i.WebsocketClient.Send(response); err != nil {
 		return err
 	}
 	return nil

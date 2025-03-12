@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-type DockerContainerDomain interface {
+type DockerContainer interface {
 	RunCode(request *proto.ExecuteRequest) (response proto.ExecuteResponse, err error)
 }
 

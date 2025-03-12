@@ -1,4 +1,4 @@
-package innerServer
+package client
 
 import (
 	"bytes"
@@ -12,13 +12,13 @@ import (
 	"time"
 )
 
-type ServerClient interface {
-	Dail(TargetServer) error                   // websocket客户端启动
-	Read() (*proto.ExecuteRequest, error)      // 读取消息
-	SendToServer(*proto.ExecuteResponse) error // 发送消息到websocket服务端
+type WebsocketClient interface {
+	Dail(TargetServer) error              // websocket客户端启动
+	Read() (*proto.ExecuteRequest, error) // 读取消息
+	Send(*proto.ExecuteResponse) error    // 发送消息post到调用者
 }
 
-type InnerServerClient struct {
+type Client struct {
 	conn          *websocket.Conn // websocket连接
 	pingPeriod    time.Duration   // 心跳检测时间间隔
 	pongWait      time.Duration   // 心跳响应等待时间
@@ -27,8 +27,8 @@ type InnerServerClient struct {
 	targetServer  TargetServer    // 目标服务器
 }
 
-func NewInnerServerClient() *InnerServerClient {
-	return &InnerServerClient{
+func NewInnerServerClient() *Client {
+	return &Client{
 		// 设置默认心跳参数
 		pingPeriod: 30 * time.Second,
 		pongWait:   60 * time.Second,
@@ -38,25 +38,26 @@ func NewInnerServerClient() *InnerServerClient {
 	}
 }
 
-func (i *InnerServerClient) Dail(targetServer TargetServer) error {
+// Dail 建立websocket连接
+func (i *Client) Dail(targetServer TargetServer) error {
 	i.targetServer = targetServer
 	return i.connect()
 }
 
 // 连接方法
-func (i *InnerServerClient) connect() error {
+func (i *Client) connect() error {
 	dialer := websocket.Dialer{
 		HandshakeTimeout: 10 * time.Second,
 	}
 
+	// 建立连接
 	url := fmt.Sprintf("ws://%s:%s/%s/%s", i.targetServer.host, i.targetServer.port, i.targetServer.path, i.targetServer.rowQuery)
-	fmt.Println(url)
+	//fmt.Println(url)
 	conn, _, err := dialer.Dial(url, nil)
 	if err != nil {
 		log.Println("内网服务器客户端发起链接失败 err=", err)
 		return err
 	}
-
 	i.conn = conn
 
 	// 设置 pong 处理器
@@ -71,8 +72,11 @@ func (i *InnerServerClient) connect() error {
 }
 
 // 重连方法
-func (i *InnerServerClient) reconnect() error {
-	i.conn.Close()
+func (i *Client) reconnect() error {
+	err := i.conn.Close()
+	if err != nil {
+		return err
+	}
 
 	for {
 		log.Println("尝试重新连接...")
@@ -87,12 +91,15 @@ func (i *InnerServerClient) reconnect() error {
 }
 
 // 心跳检测方法
-func (i *InnerServerClient) startPing() {
+func (i *Client) startPing() {
+	// 初始化心跳检测定时器
 	ticker := time.NewTicker(i.pingPeriod)
 	defer ticker.Stop()
 
+	// 进行心跳检测
 	for {
 		select {
+		// 定时发送
 		case <-ticker.C:
 			if err := i.sendPing(); err != nil {
 				log.Println("发送心跳失败:", err)
@@ -102,13 +109,20 @@ func (i *InnerServerClient) startPing() {
 					return
 				}
 			}
+		// 结束心跳检测
 		case <-i.stopPingCh:
 			return
 		}
 	}
 }
 
-func (i *InnerServerClient) Read() (*proto.ExecuteRequest, error) {
+// 发送ping
+func (i *Client) sendPing() error {
+	return i.conn.WriteControl(websocket.PingMessage, []byte{}, time.Now())
+}
+
+// 读取websocket服务端消息
+func (i *Client) Read() (*proto.ExecuteRequest, error) {
 	_, m, err := i.conn.ReadMessage()
 	if err != nil {
 		return nil, err
@@ -122,12 +136,15 @@ func (i *InnerServerClient) Read() (*proto.ExecuteRequest, error) {
 	return msg, nil
 }
 
-func (i *InnerServerClient) SendToServer(msg *proto.ExecuteResponse) error {
+// Send 将msg通过post发送到回调url
+func (i *Client) Send(msg *proto.ExecuteResponse) error {
+	// 序列化msg
 	data, err := json.Marshal(*msg)
 	if err != nil {
 		return err
 	}
 
+	// 发送msg
 	req, err := http.NewRequest("POST", msg.CallBackUrl, bytes.NewBuffer(data))
 
 	client := &http.Client{}
@@ -142,11 +159,8 @@ func (i *InnerServerClient) SendToServer(msg *proto.ExecuteResponse) error {
 	return nil
 }
 
-func (i *InnerServerClient) sendPing() error {
-	return i.conn.WriteControl(websocket.PingMessage, []byte{}, time.Now())
-}
-
-func (i *InnerServerClient) Close() error {
+// Close 关闭websocket客户端
+func (i *Client) Close() error {
 	// 停止心跳检测
 	close(i.stopPingCh)
 	return i.conn.Close()
