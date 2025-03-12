@@ -17,5 +17,3 @@ func (t *TokenServer) GenerateToken(ctx context.Context, request *proto.Generate
 	}
 	return response, nil
 }
-
-func (t *TokenServer) mustEmbedUnimplementedTokenIssuerServer() {}
