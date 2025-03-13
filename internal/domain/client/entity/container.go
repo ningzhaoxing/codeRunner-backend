@@ -187,6 +187,7 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 	logContent, _ := io.ReadAll(logs)
 	response.Result = string(logContent)
 	response.Id = request.Id
+	response.Uid = request.Uid
 	response.CallBackUrl = request.CallBackUrl
 	return response, nil
 }
