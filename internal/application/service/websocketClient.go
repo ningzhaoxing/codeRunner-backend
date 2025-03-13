@@ -60,6 +60,9 @@ func (w *WebsocketClient) Run(weight int64) error {
 		}
 		// 执行代码
 		res, err := w.RunCode(msg)
+		if err != nil {
+			return err
+		}
 
 		// 发送结果
 		if err = w.send(res); err != nil {

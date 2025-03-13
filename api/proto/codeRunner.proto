@@ -12,14 +12,16 @@ service CodeRunner {
 
 message ExecuteRequest {
   string id = 1;
-  string language = 2;
-  string codeBlock = 3;
-  string callBackUrl = 4;
+  uint32 uid = 2;
+  string language = 3;
+  string codeBlock = 4;
+  string callBackUrl = 5;
 }
 
 message ExecuteResponse {
   string id = 1;
-  string grpcCode = 2;
-  string result = 3;
-  string callBackUrl = 4;
+  uint32 uid = 2;
+  string grpcCode = 3;
+  string result = 4;
+  string callBackUrl = 5;
 }
