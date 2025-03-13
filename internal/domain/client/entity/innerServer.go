@@ -8,13 +8,6 @@ import (
 	"log"
 )
 
-type InnerServerDomain interface {
-	Dail(client.TargetServer) error
-	Read() (*proto.ExecuteRequest, error)
-	Send(*proto.ExecuteResponse) error
-	RunCode(*proto.ExecuteRequest) (*proto.ExecuteResponse, error)
-}
-
 type InnerServer struct {
 	id   string
 	conn *websocket.Conn

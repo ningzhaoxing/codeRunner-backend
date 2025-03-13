@@ -8,12 +8,6 @@ import (
 	"sync"
 )
 
-type ClientManagerDomain interface {
-	Add(*entity.Client, int64)
-	Remove(string)
-	GetServerByBalance() (*entity.Client, error)
-}
-
 type ClientManager struct {
 	clients []*entity.Client
 	rw      sync.RWMutex
