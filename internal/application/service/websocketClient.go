@@ -3,6 +3,7 @@ package service
 import (
 	"codeRunner-siwu/api/proto"
 	"codeRunner-siwu/internal/domain/client/entity"
+	"codeRunner-siwu/internal/domain/client/service"
 	"codeRunner-siwu/internal/infrastructure/config"
 	"codeRunner-siwu/internal/infrastructure/websocket/client"
 	"context"
@@ -17,7 +18,7 @@ type RunCode interface {
 // WebsocketClient websocket 客户端 -- 内网服务器
 type WebsocketClient struct {
 	config *config.Config
-	entity.InnerServerDomain
+	service.InnerServerDomain
 }
 
 func NewWebsocketClient(config *config.Config, ctx context.Context) (*WebsocketClient, error) {
