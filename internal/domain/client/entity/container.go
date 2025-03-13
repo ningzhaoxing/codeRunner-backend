@@ -167,6 +167,8 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 	case err := <-errCh:
 		log.Printf("容器执行异常: %v", err)
 		return response, fmt.Errorf("docker客户端错误")
+	case <-client.ctx.Done():
+		return response, fmt.Errorf("超时取消")
 	case <-statusCh: // 正常退出
 	}
 

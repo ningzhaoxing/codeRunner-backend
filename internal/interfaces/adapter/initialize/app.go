@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 func RunServer() {
@@ -66,8 +67,8 @@ func RunServer() {
 }
 
 func RunClient() {
-	ctx := context.Background()
-
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	// 初始化配置
 	c, err := InitConfig()
 	if err != nil {
