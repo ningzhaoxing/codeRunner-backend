@@ -18,6 +18,8 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+var WebsocketServer *service.WebsocketServer
+
 func HandleServer() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		weightString := c.Query("weight") // 获取服务器权重
@@ -33,12 +35,12 @@ func HandleServer() gin.HandlerFunc {
 			return
 		}
 
-		websocketServer := service.NewWebsocketServer()
+		WebsocketServer = service.NewWebsocketServer()
 		// 将该服务器添加到服务器管理
-		clientId := websocketServer.Add(conn, weight)
+		clientId := WebsocketServer.Add(conn, weight)
 
 		// 启动心跳检测
-		heartBeat(conn, clientId, websocketServer)
+		heartBeat(conn, clientId, WebsocketServer)
 	}
 }
 
