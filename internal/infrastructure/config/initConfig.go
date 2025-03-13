@@ -7,6 +7,7 @@ var configPath = "./configs/configOS.yaml"
 type Config struct {
 	Grpc Grpc `yaml:"grpc"`
 	Etcd Etcd `yaml:"etcd"`
+	App  App  `yaml:"app"`
 }
 
 type Grpc struct {
@@ -17,6 +18,11 @@ type Grpc struct {
 type Etcd struct {
 	Endpoints string `yaml:"endpoints"`
 	Key       string `yaml:"key"`
+}
+
+type App struct {
+	Host string `yaml:"host"`
+	Port string `yaml:"port"`
 }
 
 func LoadConfig() (*Config, error) {

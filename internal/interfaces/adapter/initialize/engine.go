@@ -1,13 +1,27 @@
 package initialize
 
 import (
+	"codeRunner-siwu/internal/application/service"
+	"codeRunner-siwu/internal/infrastructure/config"
 	"codeRunner-siwu/internal/interfaces/controller/ws"
+	"fmt"
 	"github.com/gin-gonic/gin"
+	"log"
+	"net/http"
 )
 
-func InitEngine() *gin.Engine {
+func InitEngine(websocketServer *service.WebsocketServer, c *config.Config) {
 	r := gin.Default()
 
-	r.POST("/ws", ws.HandleServer())
-	return r
+	r.POST("/ws", ws.HandleServer(websocketServer))
+
+	server := &http.Server{
+		Addr:    fmt.Sprintf("%s:%s", c.App.Host, c.App.Port),
+		Handler: r,
+	}
+	err := server.ListenAndServe()
+	if err != nil {
+		log.Println("server-->", err)
+		return
+	}
 }

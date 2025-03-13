@@ -2,11 +2,12 @@ package rpc
 
 import (
 	"codeRunner-siwu/api/proto"
+	"codeRunner-siwu/internal/application/service"
 	"google.golang.org/grpc"
 )
 
 // Register grpc服务注册
-func Register() *grpc.Server {
+func Register(websocketServer *service.WebsocketServer) *grpc.Server {
 	// token中间件注册
 	u := grpc.UnaryInterceptor(UnaryInterceptor())
 	s := grpc.NewServer(u)
@@ -16,8 +17,8 @@ func Register() *grpc.Server {
 	proto.RegisterTokenIssuerServer(s, &token)
 
 	// 代码运行服务注册
-	serve := Server{}
-	proto.RegisterCodeRunnerServer(s, &serve)
+	serve := NewServer(websocketServer)
+	proto.RegisterCodeRunnerServer(s, serve)
 
 	return s
 }
