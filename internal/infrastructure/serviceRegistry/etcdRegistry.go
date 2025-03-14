@@ -33,7 +33,6 @@ func NewEtcdRegistry(endpoints []string, key, value string) (*EtcdRegistry, erro
 
 // Register 注册服务
 func (r *EtcdRegistry) Register(ctx context.Context, ttl int64) error {
-
 	// 1. 创建租约
 	lease := clientv3.NewLease(r.Client)
 
@@ -62,8 +61,9 @@ func (r *EtcdRegistry) Register(ctx context.Context, ttl int64) error {
 
 	// 4. 监听续约响应
 	go func() {
+		fmt.Println(12345)
 		for range keepAliveCh {
-			log.Println("續約成功!")
+			fmt.Println("續約成功!")
 		}
 	}()
 	return nil

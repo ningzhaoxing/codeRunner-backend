@@ -8,23 +8,15 @@ import (
 	"fmt"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc"
-	"log"
 	"net"
 )
 
-func InitGrpc(websocketServer *service.WebsocketServer, c *config.Config, ctx context.Context) (net.Listener, *grpc.Server) {
+func InitGrpc(websocketServer *service.WebsocketServer, c *config.Config, ctx context.Context) (net.Listener, *grpc.Server, *clientv3.Client) {
 	// 将grpc服务注册到etcd
 	etcdClient, err := EtcdRegister(ctx, c)
 	if err != nil {
 		panic("服务注册失败" + err.Error())
 	}
-
-	defer func(Client *clientv3.Client) {
-		err := Client.Close()
-		if err != nil {
-			log.Println("服务关闭失败" + err.Error())
-		}
-	}(etcdClient.Client)
 
 	// 启动grpc服务
 	lis, err := net.Listen("tcp", fmt.Sprintf("%s:%s", c.Grpc.Host, c.Grpc.Port))
@@ -34,5 +26,5 @@ func InitGrpc(websocketServer *service.WebsocketServer, c *config.Config, ctx co
 
 	// 注册grpc服务
 	s := rpc.Register(websocketServer)
-	return lis, s
+	return lis, s, etcdClient.Client
 }

@@ -5,6 +5,7 @@ import (
 	"codeRunner-siwu/internal/interfaces/controller/ws"
 	"context"
 	"fmt"
+	clientv3 "go.etcd.io/etcd/client/v3"
 	"log"
 	"os"
 	"os/signal"
@@ -32,7 +33,13 @@ func RunServer() {
 	go InitEngine(websocketServer, c)
 
 	// 启动grpc
-	lis, s := InitGrpc(websocketServer, c, ctx)
+	lis, s, client := InitGrpc(websocketServer, c, ctx)
+	defer func(Client *clientv3.Client) {
+		err := Client.Close()
+		if err != nil {
+			log.Println("服务关闭失败" + err.Error())
+		}
+	}(client)
 
 	// 优雅关机
 	go func() {
