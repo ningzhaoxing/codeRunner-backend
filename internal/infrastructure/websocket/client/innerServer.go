@@ -30,7 +30,7 @@ type Client struct {
 func NewInnerServerClient() *Client {
 	return &Client{
 		// 设置默认心跳参数
-		pingPeriod: 30 * time.Second,
+		pingPeriod: 3 * time.Second,
 		pongWait:   60 * time.Second,
 		stopPingCh: make(chan struct{}),
 		// 设置重连等待时间
@@ -60,9 +60,9 @@ func (i *Client) connect() error {
 	i.conn = conn
 
 	// 设置 pong 处理器
-	i.conn.SetPongHandler(func(string) error {
-		return i.conn.SetReadDeadline(time.Now().Add(i.pongWait))
-	})
+	//i.conn.SetPongHandler(func(string) error {
+	//	return i.conn.SetReadDeadline(time.Now().Add(i.pongWait))
+	//})
 
 	// 启动心跳检测
 	go i.startPing()
@@ -74,8 +74,10 @@ func (i *Client) connect() error {
 func (i *Client) reconnect() error {
 	err := i.conn.Close()
 	if err != nil {
+		log.Println("鏈接關閉失敗")
 		return err
 	}
+	log.Println("鏈接已被關閉")
 
 	for {
 		log.Println("尝试重新连接...")

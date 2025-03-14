@@ -25,21 +25,26 @@ func NewClientManager() *ClientManager {
 
 func (s *ClientManager) Add(client *entity.Client, weight int64) {
 	s.rw.Lock()
+	defer s.rw.Unlock()
 	s.clients = append(s.clients, client)
 	s.LoadBalance.Add(weightedRRBalance.NewWeightNode(client.GetId(), weight))
-	s.rw.Unlock()
 }
 
-func (s *ClientManager) Remove(id string) {
+func (s *ClientManager) Remove(id string) error {
 	s.rw.Lock()
+	defer s.rw.Unlock()
 	for i, server := range s.clients {
 		if id == server.GetId() {
 			s.clients = append(s.clients[:i], s.clients[i+1:]...)
+			if err := server.Close(); err != nil {
+				log.Println("domain.server.service.clientManager Remove() Close err=", err)
+				return err
+			}
 			break
 		}
 	}
 	s.LoadBalance.Remove(id)
-	s.rw.Unlock()
+	return nil
 }
 
 // GetServerByBalance 通过负载均衡获取客户端

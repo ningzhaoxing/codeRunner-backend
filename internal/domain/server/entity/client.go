@@ -25,3 +25,7 @@ func (c *Client) GetId() string {
 func (c *Client) GetConn() *websocket.Conn {
 	return c.conn
 }
+
+func (c *Client) Close() error {
+	return c.conn.Close()
+}

@@ -38,43 +38,26 @@ func HandleServer(websocketServer *service.WebsocketServer) gin.HandlerFunc {
 
 		// 启动心跳检测
 		heartBeat(conn, clientId, websocketServer)
+
+		for {
+			_, _, err := conn.ReadMessage()
+			if err != nil {
+				log.Println("interfaces.controller.ws.server HandleServer() ReadMessage err=", err)
+				return
+			}
+		}
 	}
 }
 
 func heartBeat(conn *websocket.Conn, clientId string, websocketServer *service.WebsocketServer) {
 	// 设置心跳检测参数
-	pingPeriod := 30 * time.Second
 	pongWait := 60 * time.Second
 
 	// 设置读取超时时间
 	err := conn.SetReadDeadline(time.Now().Add(pongWait))
 	if err != nil {
 		log.Println("controller.ws.HandleServer() SetReadDeadline err=", err)
+		websocketServer.Remove(clientId)
 		return
 	}
-
-	// 设置 pong 处理器
-	conn.SetPongHandler(func(string) error {
-		// 收到 pong 后延长读取超时时间
-		return conn.SetReadDeadline(time.Now().Add(pongWait))
-	})
-
-	// 启动心跳检测
-	go func() {
-		ticker := time.NewTicker(pingPeriod)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				// 发送 ping 消息
-				if err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(10*time.Second)); err != nil {
-					// 心跳检测失败时，移除连接
-					websocketServer.Remove(clientId)
-					log.Println("发送心跳失败:", err)
-					return
-				}
-			}
-		}
-	}()
 }
