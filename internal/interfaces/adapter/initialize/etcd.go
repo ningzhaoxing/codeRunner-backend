@@ -22,6 +22,8 @@ func EtcdRegister(ctx context.Context, c *config.Config) (*serviceRegistry.EtcdR
 		return nil, err
 	}
 
+	fmt.Println("etcd鏈接成功!")
+
 	if err := etcdClient.Register(ctx, 10); err != nil {
 		log.Println("interfaces-adapter-initialize-etcd EtcdRegister的etcdClient.Register err=", err)
 		return nil, err

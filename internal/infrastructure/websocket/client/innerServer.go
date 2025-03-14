@@ -27,10 +27,10 @@ type Client struct {
 	targetServer  TargetServer    // 目标服务器
 }
 
-func NewInnerServerClient() *Client {
+func NewClient() *Client {
 	return &Client{
 		// 设置默认心跳参数
-		pingPeriod: 3 * time.Second,
+		pingPeriod: 10 * time.Second,
 		pongWait:   60 * time.Second,
 		stopPingCh: make(chan struct{}),
 		// 设置重连等待时间
@@ -53,16 +53,12 @@ func (i *Client) connect() error {
 	// 建立连接
 	url := fmt.Sprintf("ws://%s:%s/%s?%s", i.targetServer.host, i.targetServer.port, i.targetServer.path, i.targetServer.rowQuery)
 	conn, _, err := dialer.Dial(url, nil)
+
 	if err != nil {
 		log.Println("内网服务器客户端发起链接失败 err=", err)
 		return err
 	}
 	i.conn = conn
-
-	// 设置 pong 处理器
-	//i.conn.SetPongHandler(func(string) error {
-	//	return i.conn.SetReadDeadline(time.Now().Add(i.pongWait))
-	//})
 
 	// 启动心跳检测
 	go i.startPing()
@@ -97,6 +93,9 @@ func (i *Client) startPing() {
 	ticker := time.NewTicker(i.pingPeriod)
 	defer ticker.Stop()
 
+	if i.conn != nil {
+		fmt.Println("------------")
+	}
 	// 进行心跳检测
 	for {
 		select {
@@ -110,6 +109,7 @@ func (i *Client) startPing() {
 					return
 				}
 			}
+			fmt.Println("心跳發送成功！")
 		// 结束心跳检测
 		case <-i.stopPingCh:
 			return
@@ -119,7 +119,7 @@ func (i *Client) startPing() {
 
 // 发送ping
 func (i *Client) sendPing() error {
-	return i.conn.WriteControl(websocket.PingMessage, []byte{}, time.Now())
+	return i.conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(4*time.Second))
 }
 
 // 读取websocket服务端消息

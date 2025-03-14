@@ -31,26 +31,6 @@ func NewWebsocketClient(config *config.Config, ctx context.Context) (*WebsocketC
 	return &WebsocketClient{config: config, InnerServerDomain: client}, nil
 }
 
-// 向服务端建立连接
-func (w *WebsocketClient) dail(weight int64) error {
-	targetServer := client.NewTargetServer("8.154.36.180", "7979", "ws", fmt.Sprintf("weight=%d", weight))
-
-	err := w.InnerServerDomain.Dail(*targetServer)
-	if err != nil {
-		log.Println("application.service.dail() Dail err=", err)
-		return err
-	}
-	return nil
-}
-
-func (w *WebsocketClient) send(res *proto.ExecuteResponse) error {
-	if err := w.InnerServerDomain.Send(res); err != nil {
-		log.Println("application.service.send() Send err=", err)
-		return err
-	}
-	return nil
-}
-
 func (w *WebsocketClient) Run(weight int64) error {
 	if err := w.dail(weight); err != nil {
 		log.Println("application.service.Run() dail err=", err)
@@ -78,4 +58,24 @@ func (w *WebsocketClient) Run(weight int64) error {
 			return err
 		}
 	}
+}
+
+// 向服务端建立连接
+func (w *WebsocketClient) dail(weight int64) error {
+	targetServer := client.NewTargetServer("8.154.36.180", "7979", "ws", fmt.Sprintf("weight=%d", weight))
+
+	err := w.InnerServerDomain.Dail(*targetServer)
+	if err != nil {
+		log.Println("application.service.dail() Dail err=", err)
+		return err
+	}
+	return nil
+}
+
+func (w *WebsocketClient) send(res *proto.ExecuteResponse) error {
+	if err := w.InnerServerDomain.Send(res); err != nil {
+		log.Println("application.service.send() Send err=", err)
+		return err
+	}
+	return nil
 }

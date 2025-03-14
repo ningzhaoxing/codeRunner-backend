@@ -75,6 +75,7 @@ func RunClient() {
 	if err != nil {
 		panic(fmt.Sprintf("服务启动失败err=%s\n", err))
 	}
+
 	if err := client.Run(); err != nil {
 		panic(fmt.Sprintf("服务启动失败err=%s\n", err))
 	}

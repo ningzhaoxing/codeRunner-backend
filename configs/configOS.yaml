@@ -1,5 +1,5 @@
 etcd:
-  endpoints: "114.55.128.130:2379"
+  endpoints: "8.154.36.180:2378"
   key: "/services/code-runner"
 
 grpc:

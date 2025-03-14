@@ -22,7 +22,7 @@ func NewInnerServer(ctx context.Context) (*InnerServer, error) {
 		log.Println("domain.client.entity.NewInnerServer() NewDockerClient err=", err)
 		return nil, err
 	}
-	return &InnerServer{WebsocketClient: client.NewInnerServerClient(), DockerContainer: dockerContainer}, nil
+	return &InnerServer{WebsocketClient: client.NewClient(), DockerContainer: dockerContainer}, nil
 }
 
 func (i *InnerServer) Dail(targetServer client.TargetServer) error {
