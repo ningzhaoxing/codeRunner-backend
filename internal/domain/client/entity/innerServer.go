@@ -27,7 +27,7 @@ func NewInnerServer(ctx context.Context) (*InnerServer, error) {
 
 func (i *InnerServer) Dail(targetServer client.TargetServer) error {
 	// 初始化websocket连接
-	if err := client.NewInnerServerClient().Dail(targetServer); err != nil {
+	if err := i.WebsocketClient.Dail(targetServer); err != nil {
 		log.Println(err)
 		return err
 	}

@@ -50,10 +50,8 @@ func (i *Client) connect() error {
 		HandshakeTimeout: 10 * time.Second,
 	}
 
-	fmt.Println(1111111)
 	// 建立连接
 	url := fmt.Sprintf("ws://%s:%s/%s?%s", i.targetServer.host, i.targetServer.port, i.targetServer.path, i.targetServer.rowQuery)
-	fmt.Println(url)
 	conn, _, err := dialer.Dial(url, nil)
 	if err != nil {
 		log.Println("内网服务器客户端发起链接失败 err=", err)
