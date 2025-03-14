@@ -11,7 +11,7 @@ import (
 
 type RunServer interface {
 	Add(*websocket.Conn, int64) string
-	Remove(string)
+	Remove(string) error
 	Execute(in *proto.ExecuteRequest) error
 }
 
@@ -31,8 +31,8 @@ func (w *WebsocketServer) Add(conn *websocket.Conn, weight int64) string {
 	return client.GetId()
 }
 
-func (w *WebsocketServer) Remove(id string) {
-	w.ClientManagerDomain.Remove(id)
+func (w *WebsocketServer) Remove(id string) error {
+	return w.ClientManagerDomain.Remove(id)
 }
 
 func (w *WebsocketServer) Send(conn *websocket.Conn, in *proto.ExecuteRequest) error {
