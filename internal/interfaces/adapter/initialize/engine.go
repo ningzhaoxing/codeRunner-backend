@@ -13,7 +13,7 @@ import (
 func InitEngine(websocketServer *service.WebsocketServer, c *config.Config) {
 	r := gin.Default()
 
-	r.POST("/ws", ws.HandleServer(websocketServer))
+	r.GET("/ws", ws.HandleServer(websocketServer))
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf("%s:%s", c.App.Host, c.App.Port),

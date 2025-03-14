@@ -31,7 +31,7 @@ func NewWebsocketClient(config *config.Config, ctx context.Context) (*WebsocketC
 
 // 向服务端建立连接
 func (w *WebsocketClient) dail(weight int64) error {
-	targetServer := client.NewTargetServer("8.154.36.180", "7979", fmt.Sprintf("weight=%d", weight), "/ws")
+	targetServer := client.NewTargetServer("8.154.36.180", "7979", "ws", fmt.Sprintf("weight=%d", weight))
 
 	err := w.InnerServerDomain.Dail(*targetServer)
 	if err != nil {
@@ -59,6 +59,7 @@ func (w *WebsocketClient) Run(weight int64) error {
 		if err != nil {
 			return err
 		}
+
 		// 执行代码
 		res, err := w.RunCode(msg)
 		if err != nil {
