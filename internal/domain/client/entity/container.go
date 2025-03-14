@@ -26,7 +26,7 @@ type dockerContainerClient struct {
 // NewDockerClient 新构造函数：通过完整host地址连接
 func NewDockerClient(ctx context.Context) (*dockerContainerClient, error) {
 	cli, err := client.NewClientWithOpts(
-		client.WithHost("unix:///var/run/docker.sock"),
+		client.WithHost("tcp://192.168.10.18:2374"),
 		client.WithAPIVersionNegotiation(), // 自动协商API版本
 	)
 	if err != nil {
