@@ -2,6 +2,7 @@ package serviceRegistry
 
 import (
 	"context"
+	"fmt"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"log"
 	"time"
@@ -50,6 +51,8 @@ func (r *EtcdRegistry) Register(ctx context.Context, ttl int64) error {
 		return err
 	}
 
+	fmt.Println("etcd服務注冊成功！")
+
 	// 3. 自动续约
 	keepAliveCh, err := lease.KeepAlive(ctx, r.leaseID)
 	if err != nil {
@@ -60,7 +63,7 @@ func (r *EtcdRegistry) Register(ctx context.Context, ttl int64) error {
 	// 4. 监听续约响应
 	go func() {
 		for range keepAliveCh {
-			log.Println(<-keepAliveCh)
+			log.Println("續約成功!")
 		}
 	}()
 	return nil

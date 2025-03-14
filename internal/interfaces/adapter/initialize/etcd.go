@@ -22,7 +22,7 @@ func EtcdRegister(ctx context.Context, c *config.Config) (*serviceRegistry.EtcdR
 		return nil, err
 	}
 
-	if err := etcdClient.Register(registerCtx, 3); err != nil {
+	if err := etcdClient.Register(registerCtx, 10); err != nil {
 		log.Println("interfaces-adapter-initialize-etcd EtcdRegister的etcdClient.Register err=", err)
 		return nil, err
 	}
