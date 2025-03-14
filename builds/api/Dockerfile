@@ -18,7 +18,7 @@ FROM alpine:3.17
 
 WORKDIR /app
 COPY --from=builder --chown=runner /app/code-runner .
-COPY --chown=runner configs/config.yaml ./configs/
+COPY --chown=runner configs/configIS.yaml ./configs/
 
 EXPOSE 8080
 ENTRYPOINT ["/app/code-runner"]
