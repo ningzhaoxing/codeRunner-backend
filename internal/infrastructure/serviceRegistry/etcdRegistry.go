@@ -61,9 +61,7 @@ func (r *EtcdRegistry) Register(ctx context.Context, ttl int64) error {
 
 	// 4. 监听续约响应
 	go func() {
-		fmt.Println(12345)
 		for range keepAliveCh {
-			fmt.Println("續約成功!")
 		}
 	}()
 	return nil
