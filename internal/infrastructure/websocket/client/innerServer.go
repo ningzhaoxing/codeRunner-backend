@@ -124,6 +124,7 @@ func (i *Client) sendPing() error {
 func (i *Client) Read() (*proto.ExecuteRequest, error) {
 	_, m, err := i.conn.ReadMessage()
 	if err != nil {
+		log.Println("infrastructure-websocket-client innerServer的Read()  err=", err)
 		return nil, err
 	}
 
@@ -140,6 +141,7 @@ func (i *Client) Send(msg *proto.ExecuteResponse) error {
 	// 序列化msg
 	data, err := json.Marshal(*msg)
 	if err != nil {
+		log.Println("infrastructure-websocket-client innerServer Send() 的 json.Marshal err=", err)
 		return err
 	}
 
@@ -149,6 +151,7 @@ func (i *Client) Send(msg *proto.ExecuteResponse) error {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
+		log.Println("infrastructure-websocket-client innerServer Send() 的 client.Do err=", err)
 		return err
 	}
 

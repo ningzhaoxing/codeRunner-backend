@@ -20,6 +20,7 @@ func NewEtcdRegistry(endpoints []string, key, value string) (*EtcdRegistry, erro
 		DialTimeout: 3 * time.Second,
 	})
 	if err != nil {
+		log.Println("infrastructure-serviceRegistry NewEtcdRegistry的clientv3.New err=", err)
 		return nil, err
 	}
 	return &EtcdRegistry{
@@ -37,7 +38,7 @@ func (r *EtcdRegistry) Register(ctx context.Context, ttl int64) error {
 
 	grantResp, err := lease.Grant(ctx, ttl)
 	if err != nil {
-		log.Println()
+		log.Println("infrastructure-serviceRegistry Register的lease.Grant err=", err)
 		return err
 	}
 	r.leaseID = grantResp.ID
@@ -45,12 +46,14 @@ func (r *EtcdRegistry) Register(ctx context.Context, ttl int64) error {
 	// 2. 绑定租约并写入 key-value
 	_, err = r.Client.Put(ctx, r.key, r.value, clientv3.WithLease(r.leaseID))
 	if err != nil {
+		log.Println("infrastructure-serviceRegistry Register的r.Client.Put err=", err)
 		return err
 	}
 
 	// 3. 自动续约
 	keepAliveCh, err := lease.KeepAlive(ctx, r.leaseID)
 	if err != nil {
+		log.Println("infrastructure-serviceRegistry Register的lease.KeepAlive err=", err)
 		return err
 	}
 
@@ -68,9 +71,14 @@ func (r *EtcdRegistry) Unregister(ctx context.Context) error {
 	defer func(Client *clientv3.Client) {
 		err := Client.Close()
 		if err != nil {
-
+			log.Println("infrastructure-serviceRegistry Unregister的Client.Close() err=", err)
+			return
 		}
 	}(r.Client)
 	_, err := r.Client.Revoke(ctx, r.leaseID)
-	return err
+	if err != nil {
+		log.Println("infrastructure-serviceRegistry Unregister的r.Client.Revoke err=", err)
+		return err
+	}
+	return nil
 }

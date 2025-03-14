@@ -1,6 +1,9 @@
 package config
 
-import "github.com/spf13/viper"
+import (
+	"github.com/spf13/viper"
+	"log"
+)
 
 var configPath = "./configs/configOS.yaml"
 
@@ -28,10 +31,12 @@ type App struct {
 func LoadConfig() (*Config, error) {
 	viper.SetConfigFile(configPath)
 	if err := viper.ReadInConfig(); err != nil {
+		log.Printf("infrastructure-config LoadConfig()的 viper.ReadInConfig err  %v", err)
 		return nil, err
 	}
 	var cfg Config
 	if err := viper.Unmarshal(&cfg); err != nil {
+		log.Printf("infrastructure-config LoadConfig()的 viper.Unmarshal err  %v", err)
 		return nil, err
 	}
 	return &cfg, nil

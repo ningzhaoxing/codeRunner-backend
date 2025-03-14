@@ -8,6 +8,7 @@ import (
 	"fmt"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc"
+	"log"
 	"net"
 )
 
@@ -21,7 +22,7 @@ func InitGrpc(websocketServer *service.WebsocketServer, c *config.Config, ctx co
 	defer func(Client *clientv3.Client) {
 		err := Client.Close()
 		if err != nil {
-			fmt.Println("服务注册失败" + err.Error())
+			log.Println("服务关闭失败" + err.Error())
 		}
 	}(etcdClient.Client)
 

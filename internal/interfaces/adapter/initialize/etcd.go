@@ -5,6 +5,7 @@ import (
 	"codeRunner-siwu/internal/infrastructure/serviceRegistry"
 	"context"
 	"fmt"
+	"log"
 	"time"
 )
 
@@ -17,10 +18,12 @@ func EtcdRegister(ctx context.Context, c *config.Config) (*serviceRegistry.EtcdR
 
 	etcdClient, err := serviceRegistry.NewEtcdRegistry(endPoints, c.Etcd.Key, fmt.Sprintf("%s:%s", c.Grpc.Host, c.Grpc.Port))
 	if err != nil {
+		log.Println("interfaces-adapter-initialize-etcd EtcdRegister的serviceRegistry.NewEtcdRegistry err=", err)
 		return nil, err
 	}
 
 	if err := etcdClient.Register(registerCtx, 3); err != nil {
+		log.Println("interfaces-adapter-initialize-etcd EtcdRegister的etcdClient.Register err=", err)
 		return nil, err
 	}
 
