@@ -31,7 +31,7 @@ func NewWebsocketClient(config *config.Config, ctx context.Context) (*WebsocketC
 
 // 向服务端建立连接
 func (w *WebsocketClient) dail(weight int64) error {
-	targetServer := client.NewTargetServer(w.config.Grpc.Host, w.config.Grpc.Port, fmt.Sprintf("weight=%d", weight), "/ws")
+	targetServer := client.NewTargetServer("8.154.36.180", "7979", fmt.Sprintf("weight=%d", weight), "/ws")
 
 	err := w.InnerServerDomain.Dail(*targetServer)
 	if err != nil {
