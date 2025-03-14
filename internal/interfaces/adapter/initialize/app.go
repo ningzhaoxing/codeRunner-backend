@@ -42,9 +42,9 @@ func RunServer() {
 		s.GracefulStop()
 	}()
 
-	fmt.Println("client running...")
+	fmt.Println("server running...")
 	if err := s.Serve(lis); err != nil {
-		log.Println("client-->" + err.Error())
+		log.Println("server-->" + err.Error())
 	}
 }
 
