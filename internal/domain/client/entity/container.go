@@ -30,6 +30,7 @@ func NewDockerClient(ctx context.Context) (*dockerContainerClient, error) {
 		client.WithAPIVersionNegotiation(), // 自动协商API版本
 	)
 	if err != nil {
+		log.Println("domain.client.entity.NewDockerClient() NewClientWithOpts err=", err)
 		return nil, fmt.Errorf("创建Docker客户端失败: %v", err)
 	}
 	return &dockerContainerClient{ctx: ctx, cli: cli}, nil
@@ -61,6 +62,7 @@ func (client *dockerContainerClient) createContainer(image string, dirName strin
 		"",
 	)
 	if err != nil {
+		log.Println("domain.client.entity.createContainer() ContainerCreate err=", err)
 		return container.CreateResponse{}, fmt.Errorf("容器创建失败: %v", err)
 	}
 	return resp, nil
@@ -76,6 +78,7 @@ func (client *dockerContainerClient) rmContainer(id string) error {
 	}
 	err := client.cli.ContainerRemove(client.ctx, id, option)
 	if err != nil {
+		log.Println("domain.client.entity.rmContainer() ContainerRemove err=", err)
 		return fmt.Errorf("删除容器失败:%v", err)
 	}
 	return nil
@@ -85,6 +88,7 @@ func (client *dockerContainerClient) rmContainer(id string) error {
 func (client *dockerContainerClient) stopContainer(id string) error {
 	err := client.cli.ContainerStop(client.ctx, id, container.StopOptions{})
 	if err != nil {
+		log.Println("domain.client.entity.stopContainer() ContainerStop err=", err)
 		return fmt.Errorf("停止容器失败:%v", err)
 	}
 	return nil
@@ -101,6 +105,7 @@ func (client *dockerContainerClient) getImageName(lang string) string {
 		"c++":    "gcc:12.2.0",
 	}
 	if ext, ok := extensionMap[lang]; ok {
+		log.Println("domain.client.entity.getImageName() extensionMap err=", ext)
 		return ext
 	}
 	return "txt"
@@ -117,6 +122,7 @@ func (client *dockerContainerClient) getFileExtension(lang string) (string, erro
 		"c++":    "cpp",
 	}
 	if ext, ok := extensionMap[lang]; ok {
+		log.Println("domain.client.entity.getFileExtension() extensionMap err=", ext)
 		return ext, nil
 	}
 	return "", fmt.Errorf("当前服务不支持此类型")

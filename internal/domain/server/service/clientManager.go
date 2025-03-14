@@ -5,6 +5,7 @@ import (
 	"codeRunner-siwu/internal/infrastructure/bananceStrategy"
 	"codeRunner-siwu/internal/infrastructure/bananceStrategy/weightedRRBalance"
 	"codeRunner-siwu/internal/infrastructure/common/errors"
+	"log"
 	"sync"
 )
 
@@ -45,6 +46,7 @@ func (s *ClientManager) Remove(id string) {
 func (s *ClientManager) GetServerByBalance() (*entity.Client, error) {
 	node, err := s.LoadBalance.Get()
 	if err != nil {
+		log.Println("domain.server.service.GetServerByBalance() Get err=", err)
 		return nil, err
 	}
 
@@ -53,5 +55,6 @@ func (s *ClientManager) GetServerByBalance() (*entity.Client, error) {
 			return server, nil
 		}
 	}
+	log.Println("domain.server.service.GetServerByBalance() Get err=", errors.NotFoundEffectiveServer)
 	return nil, errors.NotFoundEffectiveServer
 }

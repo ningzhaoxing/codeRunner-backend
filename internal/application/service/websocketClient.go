@@ -8,6 +8,7 @@ import (
 	"codeRunner-siwu/internal/infrastructure/websocket/client"
 	"context"
 	"fmt"
+	"log"
 )
 
 // RunCode 主要任务是执行代码，并将结果post到调用者
@@ -24,6 +25,7 @@ type WebsocketClient struct {
 func NewWebsocketClient(config *config.Config, ctx context.Context) (*WebsocketClient, error) {
 	client, err := entity.NewInnerServer(ctx)
 	if err != nil {
+		log.Println("application.service.NewWebsocketClient() NewInnerServer err=", err)
 		return nil, err
 	}
 	return &WebsocketClient{config: config, InnerServerDomain: client}, nil
@@ -35,14 +37,15 @@ func (w *WebsocketClient) dail(weight int64) error {
 
 	err := w.InnerServerDomain.Dail(*targetServer)
 	if err != nil {
+		log.Println("application.service.dail() Dail err=", err)
 		return err
 	}
 	return nil
 }
 
-// 向
 func (w *WebsocketClient) send(res *proto.ExecuteResponse) error {
 	if err := w.InnerServerDomain.Send(res); err != nil {
+		log.Println("application.service.send() Send err=", err)
 		return err
 	}
 	return nil
@@ -50,6 +53,7 @@ func (w *WebsocketClient) send(res *proto.ExecuteResponse) error {
 
 func (w *WebsocketClient) Run(weight int64) error {
 	if err := w.dail(weight); err != nil {
+		log.Println("application.service.Run() dail err=", err)
 		return err
 	}
 
@@ -57,17 +61,20 @@ func (w *WebsocketClient) Run(weight int64) error {
 		// 读取消息
 		msg, err := w.InnerServerDomain.Read()
 		if err != nil {
+			log.Println("application.service.Run() Read err=", err)
 			return err
 		}
 
 		// 执行代码
 		res, err := w.RunCode(msg)
 		if err != nil {
+			log.Println("application.service.Run() RunCode err=", err)
 			return err
 		}
 
 		// 发送结果
 		if err = w.send(res); err != nil {
+			log.Println("application.service.Run() send err=", err)
 			return err
 		}
 	}

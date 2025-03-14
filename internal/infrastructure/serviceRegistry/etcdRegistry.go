@@ -37,6 +37,7 @@ func (r *EtcdRegistry) Register(ctx context.Context, ttl int64) error {
 
 	grantResp, err := lease.Grant(ctx, ttl)
 	if err != nil {
+		log.Println()
 		return err
 	}
 	r.leaseID = grantResp.ID
