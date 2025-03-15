@@ -98,7 +98,7 @@ func (client *dockerContainerClient) stopContainer(id string) error {
 func (client *dockerContainerClient) getImageName(lang string) string {
 	lang = strings.ToLower(lang)
 	extensionMap := map[string]string{
-		"go":     "code-runner--go",
+		"go":     "code-runner-go",
 		"python": "code-runner-python",
 		"node":   "code-runner-js",
 		"java":   "code-runner-java",
