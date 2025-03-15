@@ -50,7 +50,7 @@ func (client *dockerContainerClient) createContainer(image string, dirName strin
 			Memory:   100 * 1024 * 1024, // 限制100MB内存
 			CPUQuota: 50000,             // 限制50% CPU
 		},
-		Binds: []string{fmt.Sprintf("/tmp/tmpDir/%s:/app", dirName)}, // 挂载宿主机目录到容器内/mnt
+		Binds: []string{fmt.Sprintf("/tmp/%s:/app", dirName)}, // 挂载宿主机目录到容器内/mnt
 	}
 
 	resp, err := client.cli.ContainerCreate(
