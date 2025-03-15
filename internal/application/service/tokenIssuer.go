@@ -11,7 +11,7 @@ type tokenIssuer struct {
 }
 
 func NewToken() *tokenIssuer {
-	tokenPublic := token.NewToken([]byte("I'm si_wu"))
+	tokenPublic := token.NewToken()
 	return &tokenIssuer{tokenPublic}
 }
 

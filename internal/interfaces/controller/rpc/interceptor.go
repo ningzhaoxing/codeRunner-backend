@@ -30,7 +30,7 @@ func UnaryInterceptor() grpc.UnaryServerInterceptor {
 		}
 
 		// 调用基础设施层的 TokenManager 验证 token
-		tokenManager := token2.NewToken([]byte("I'm si_wu"))
+		tokenManager := token2.NewToken()
 		valid, err := tokenManager.Verify(token[0])
 		if err != nil || !valid {
 			log.Println("invalid token")

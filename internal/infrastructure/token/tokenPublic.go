@@ -13,14 +13,14 @@ type TokenIssuer interface {
 }
 
 type token struct {
-	JwtSecret []byte
 }
 
-func NewToken(jwtSecret []byte) *token {
-	return &token{JwtSecret: jwtSecret}
+func NewToken() *token {
+	return &token{}
 }
 
 func (t *token) Public(request *proto.GenerateTokenRequest) (response *proto.GenerateTokenResponse, err error) {
+	JwtSecret := []byte("I'm codeRunner")
 	if request.Password != "123456" {
 		log.Printf("infrastructure-token Public的验证失败")
 		return response, fmt.Errorf("验证失败")
@@ -30,7 +30,7 @@ func (t *token) Public(request *proto.GenerateTokenRequest) (response *proto.Gen
 		"username": request.Name,
 		"exp":      time.Now().Add(time.Hour * 24).Unix(),
 	})
-	tokenString, err := token.SignedString(t.JwtSecret)
+	tokenString, err := token.SignedString(JwtSecret)
 	if err != nil {
 		log.Printf("infrastructure-token Public的token.SignedString 失败 err=%v", err)
 		return response, fmt.Errorf("生成token失败")
@@ -40,6 +40,7 @@ func (t *token) Public(request *proto.GenerateTokenRequest) (response *proto.Gen
 }
 
 func (t *token) Verify(tokenString string) (ok bool, err error) {
+	JwtSecret := []byte("I'm codeRunner")
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		// 检查签名方法是否正确
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -47,7 +48,7 @@ func (t *token) Verify(tokenString string) (ok bool, err error) {
 			return nil, fmt.Errorf("unexpected signing method")
 		}
 		// 返回用于验证的密钥
-		return t.JwtSecret, nil
+		return JwtSecret, nil
 	})
 	if err != nil {
 		log.Printf("infrastructure-token Verify的 jwt.Parse(失败 err=%v", err)
