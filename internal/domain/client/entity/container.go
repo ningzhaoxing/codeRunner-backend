@@ -70,20 +70,20 @@ func (client *dockerContainerClient) createContainer(image string, dirName strin
 }
 
 // RmContainer 删除指定id容器
-func (client *dockerContainerClient) rmContainer(id string) error {
-	// 设置删除选项
-	option := container.RemoveOptions{
-		RemoveVolumes: true,
-		RemoveLinks:   true,
-		Force:         true,
-	}
-	err := client.cli.ContainerRemove(client.ctx, id, option)
-	if err != nil {
-		log.Println("domain.client.entity.rmContainer() ContainerRemove err=", err)
-		return fmt.Errorf("删除容器失败:%v", err)
-	}
-	return nil
-}
+//func (client *dockerContainerClient) rmContainer(id string) error {
+//	// 设置删除选项
+//	option := container.RemoveOptions{
+//		RemoveVolumes: true,
+//		RemoveLinks:   true,
+//		Force:         true,
+//	}
+//	err := client.cli.ContainerRemove(client.ctx, id, option)
+//	if err != nil {
+//		log.Println("domain.client.entity.rmContainer() ContainerRemove err=", err)
+//		return fmt.Errorf("删除容器失败:%v", err)
+//	}
+//	return nil
+//}
 
 // StopContainer 停止指定id容器
 func (client *dockerContainerClient) stopContainer(id string) error {
@@ -91,6 +91,17 @@ func (client *dockerContainerClient) stopContainer(id string) error {
 	if err != nil {
 		log.Println("domain.client.entity.stopContainer() ContainerStop err=", err)
 		return fmt.Errorf("停止容器失败:%v", err)
+	}
+	// 设置删除选项
+	option := container.RemoveOptions{
+		RemoveVolumes: true,
+		RemoveLinks:   true,
+		Force:         true,
+	}
+	err = client.cli.ContainerRemove(client.ctx, id, option)
+	if err != nil {
+		log.Println("domain.client.entity.rmContainer() ContainerRemove err=", err)
+		return fmt.Errorf("删除容器失败:%v", err)
 	}
 	return nil
 }
@@ -166,10 +177,6 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 		return response, nil
 	}
 	containerID := resp.ID
-	defer func() { // 确保容器最终被清理
-		_ = client.stopContainer(containerID)
-		_ = client.rmContainer(containerID)
-	}()
 
 	// 4. 启动容器
 	if err := client.cli.ContainerStart(client.ctx, containerID, container.StartOptions{}); err != nil {
@@ -206,7 +213,10 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 		return response, nil
 	}
 	defer logs.Close()
-
+	//停止容器
+	_ = client.stopContainer(containerID)
+	//删除容器
+	//_ = client.rmContainer(containerID)
 	logContent, _ := io.ReadAll(logs)
 	response.Result = string(logContent)
 	return response, nil
