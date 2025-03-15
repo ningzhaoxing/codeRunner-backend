@@ -66,6 +66,6 @@ func RunClient() {
 	}
 
 	if err := client.Run(); err != nil {
-		panic(fmt.Sprintf("服务启动失败err=%s\n", err))
+		log.Println(fmt.Sprintf("服务启动失败err=%s\n", err))
 	}
 }

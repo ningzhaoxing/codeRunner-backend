@@ -51,7 +51,8 @@ func (i *Client) connect() error {
 	}
 
 	// 建立连接
-	url := fmt.Sprintf("ws://%s:%s/%s?%s", i.targetServer.host, i.targetServer.port, i.targetServer.path, i.targetServer.rowQuery)
+	url := "ws://localhost:7979/ws?weight=1"
+	//url := fmt.Sprintf("ws://%s:%s/%s?%s", i.targetServer.host, i.targetServer.port, i.targetServer.path, i.targetServer.rowQuery)
 	conn, _, err := dialer.Dial(url, nil)
 
 	if err != nil {
