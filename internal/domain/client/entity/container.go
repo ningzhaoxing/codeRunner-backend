@@ -150,7 +150,8 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 	}
 
 	// 3. 创建并启动容器
-	resp, err := client.createContainer(request.Language, tempDir)
+	imageName := client.getImageName(request.Language)
+	resp, err := client.createContainer(imageName, tempDir)
 	if err != nil {
 		log.Printf("容器创建失败: %v", err)
 		response.Err = fmt.Errorf("docker客户端错误").Error()
