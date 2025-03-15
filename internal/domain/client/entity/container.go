@@ -122,7 +122,6 @@ func (client *dockerContainerClient) getFileExtension(lang string) (string, erro
 		"c++":    "cpp",
 	}
 	if ext, ok := extensionMap[lang]; ok {
-		log.Println("domain.client.entity.getFileExtension() extensionMap err=", ext)
 		return ext, nil
 	}
 	return "", fmt.Errorf("当前服务不支持此类型")
