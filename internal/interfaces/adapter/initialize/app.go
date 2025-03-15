@@ -7,9 +7,6 @@ import (
 	"fmt"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"log"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 )
 
@@ -40,14 +37,6 @@ func RunServer() {
 			log.Println("服务关闭失败" + err.Error())
 		}
 	}(client)
-
-	// 优雅关机
-	go func() {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-		<-c
-		s.GracefulStop()
-	}()
 
 	fmt.Println("server running...")
 	if err := s.Serve(lis); err != nil {
