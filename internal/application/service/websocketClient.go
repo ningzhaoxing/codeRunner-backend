@@ -42,20 +42,20 @@ func (w *WebsocketClient) Run(weight int64) error {
 		msg, err := w.InnerServerDomain.Read()
 		if err != nil {
 			log.Println("application.service.Run() Read err=", err)
-			return err
+			continue
 		}
 
 		// 执行代码
 		res, err := w.RunCode(msg)
 		if err != nil {
 			log.Println("application.service.Run() RunCode err=", err)
-			return err
+			continue
 		}
 
 		// 发送结果
 		if err = w.send(res); err != nil {
 			log.Println("application.service.Run() send err=", err)
-			return err
+			continue
 		}
 	}
 }
