@@ -141,19 +141,19 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 	// 2. 创建代码文件（根据语言扩展名）
 	ext, err := client.getFileExtension(request.Language)
 	if err != nil {
-		return response, fmt.Errorf("不支持的语言类型: %s", request.Language)
+		response.Err = fmt.Errorf("不支持的语言类型: %s", request.Language).Error()
 	}
 	codePath := filepath.Join(tempDir, fmt.Sprintf("main.%s", ext))
 	if err := os.WriteFile(codePath, []byte(request.CodeBlock), 0644); err != nil {
 		log.Printf("写入代码文件失败: %v", err)
-		return response, fmt.Errorf("docker客户端错误")
+		response.Err = fmt.Errorf("docker客户端错误").Error()
 	}
 
 	// 3. 创建并启动容器
 	resp, err := client.createContainer(request.Language, tempDir)
 	if err != nil {
 		log.Printf("容器创建失败: %v", err)
-		return response, fmt.Errorf("docker客户端错误")
+		response.Err = fmt.Errorf("docker客户端错误").Error()
 	}
 	containerID := resp.ID
 	defer func() { // 确保容器最终被清理
@@ -164,7 +164,7 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 	// 4. 启动容器
 	if err := client.cli.ContainerStart(client.ctx, containerID, container.StartOptions{}); err != nil {
 		log.Printf("启动容器失败: %v", err)
-		return response, fmt.Errorf("docker客户端错误")
+		response.Err = fmt.Errorf("docker客户端错误").Error()
 	}
 
 	// 5. 等待容器执行完成
@@ -172,9 +172,10 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 	select {
 	case err := <-errCh:
 		log.Printf("容器执行异常: %v", err)
-		return response, fmt.Errorf("docker客户端错误")
+		response.Err = fmt.Errorf("docker客户端错误").Error()
 	case <-client.ctx.Done():
-		return response, fmt.Errorf("超时取消")
+		log.Printf("超时取消:")
+		response.Err = fmt.Errorf("超时取消").Error()
 	case <-statusCh: // 正常退出
 	}
 
@@ -186,7 +187,7 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 	)
 	if err != nil {
 		log.Printf("获取日志失败: %v", err)
-		return response, fmt.Errorf("docker客户端错误")
+		response.Err = fmt.Errorf("docker客户端错误").Error()
 	}
 	defer logs.Close()
 
