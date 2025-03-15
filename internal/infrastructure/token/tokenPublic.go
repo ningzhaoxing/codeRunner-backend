@@ -35,6 +35,7 @@ func (t *token) Public(request *proto.GenerateTokenRequest) (response *proto.Gen
 		log.Printf("infrastructure-token Public的token.SignedString 失败 err=%v", err)
 		return response, fmt.Errorf("生成token失败")
 	}
+	response = new(proto.GenerateTokenResponse)
 	response.Token = tokenString
 	return response, nil
 }
