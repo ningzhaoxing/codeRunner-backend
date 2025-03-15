@@ -105,7 +105,6 @@ func (client *dockerContainerClient) getImageName(lang string) string {
 		"c++":    "code-runner-cpp",
 	}
 	if ext, ok := extensionMap[lang]; ok {
-		log.Println("domain.client.entity.getImageName() extensionMap err=", ext)
 		return ext
 	}
 	return ""
