@@ -11,24 +11,24 @@ services:
     environment:
       - APP_ENV=production
       - DOCKER_HOST=unix:///var/run/docker.sock
-      - ETCD_ENDPOINTS=etcd:23791
+#      - ETCD_ENDPOINTS=etcd:23791
     ports:
       - "7979:7979"
     networks:
       - code-runner-net
-    depends_on:
-      - etcd
+#    depends_on:
+#      - etcd
 
-  etcd:
-    image: quay.io/coreos/etcd:v3.5.11
-    command: etcd -advertise-client-urls http://0.0.0.0:23791 -listen-client-urls http://0.0.0.0:23791
-    ports:
-      - "23791:23791"  # etcd 客户端端口
-      - "23801:23801"  # etcd 对等端口
-    volumes:
-      - etcd-data:/etcd-data  # 添加数据持久化
-    networks:
-      - code-runner-net
+#  etcd:
+#    image: quay.io/coreos/etcd:v3.5.11
+#    command: etcd -advertise-client-urls http://0.0.0.0:23791 -listen-client-urls http://0.0.0.0:23791
+#    ports:
+#      - "23791:23791"  # etcd 客户端端口
+#      - "23801:23801"  # etcd 对等端口
+#    volumes:
+#      - etcd-data:/etcd-data  # 添加数据持久化
+#    networks:
+#      - code-runner-net
 
   # 以下服务仅用于构建镜像，不自动运行
   go-runner:

@@ -9,14 +9,11 @@ import (
 )
 
 func EtcdRegister(ctx context.Context, c *config.Config) (*serviceRegistry.EtcdRegistry, error) {
-	//registerCtx, cancel := context.WithTimeout(ctx, 50*time.Second)
-	//defer cancel()
-
 	// 注册grpc
 
 	// 鏈接etcd
 	endPoints := []string{fmt.Sprintf("http://%s", c.Etcd.Endpoints)}
-	etcdClient, err := serviceRegistry.NewEtcdRegistry(endPoints, c.Etcd.Key, fmt.Sprintf("%s:%s", c.Grpc.Host, c.Grpc.Port))
+	etcdClient, err := serviceRegistry.NewEtcdRegistry(endPoints, c.Etcd.Key, fmt.Sprintf("%s:%s", "8.154.36.180", c.Grpc.Port))
 	if err != nil {
 		log.Println("interfaces-adapter-initialize-etcd EtcdRegister的serviceRegistry.NewEtcdRegistry err=", err)
 		return nil, err
