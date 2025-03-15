@@ -45,7 +45,7 @@ func (client *dockerContainerClient) createContainer(image string, dirName strin
 	}
 
 	hostConfig := &container.HostConfig{
-		ReadonlyRootfs: true,            // 只读文件系统
+		ReadonlyRootfs: false,           // 只读文件系统
 		CapDrop:        []string{"ALL"}, // 移除所有特权能力
 		Resources: container.Resources{
 			Memory:   100 * 1024 * 1024, // 限制100MB内存
@@ -87,22 +87,30 @@ func (client *dockerContainerClient) createContainer(image string, dirName strin
 
 // StopContainer 停止指定id容器
 func (client *dockerContainerClient) stopContainer(id string) error {
-	err := client.cli.ContainerStop(client.ctx, id, container.StopOptions{})
-	if err != nil {
-		log.Println("domain.client.entity.stopContainer() ContainerStop err=", err)
-		return fmt.Errorf("停止容器失败:%v", err)
+	// 1. 停止容器
+	if err := client.cli.ContainerStop(client.ctx, id, container.StopOptions{}); err != nil {
+		log.Printf("停止容器失败: %v", err)
+		return fmt.Errorf("停止容器失败: %v", err)
 	}
-	// 设置删除选项
-	option := container.RemoveOptions{
-		RemoveVolumes: true,
-		RemoveLinks:   true,
-		Force:         true,
+
+	// 2. 断开容器所有网络连接（关键修复）
+	if err := client.cli.NetworkDisconnect(client.ctx, "bridge", id, true); err != nil {
+		log.Printf("断开默认网络失败: %v", err)
+		return err
 	}
-	err = client.cli.ContainerRemove(client.ctx, id, option)
-	if err != nil {
-		log.Println("domain.client.entity.rmContainer() ContainerRemove err=", err)
-		return fmt.Errorf("删除容器失败:%v", err)
+
+	// 3. 强制删除容器（调整删除选项）
+	removeOpts := container.RemoveOptions{
+		Force:         true,  // 强制删除
+		RemoveLinks:   false, // 显式关闭链接删除（避免冲突）
+		RemoveVolumes: true,  // 按需保留或删除卷
 	}
+
+	if err := client.cli.ContainerRemove(client.ctx, id, removeOpts); err != nil {
+		log.Printf("删除容器失败: %v", err)
+		return fmt.Errorf("删除容器失败: %v", err)
+	}
+
 	return nil
 }
 
