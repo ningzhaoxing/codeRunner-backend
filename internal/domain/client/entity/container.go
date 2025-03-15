@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type DockerContainer interface {
@@ -27,7 +28,7 @@ type dockerContainerClient struct {
 func NewDockerClient(ctx context.Context) (*dockerContainerClient, error) {
 	cli, err := client.NewClientWithOpts(
 		client.WithHost("tcp://192.168.10.19:2375"),
-		client.WithVersion("1.45"), // 自动协商API版本
+		client.WithAPIVersionNegotiation(), // 自动协商API版本
 	)
 	if err != nil {
 		log.Println("domain.client.entity.NewDockerClient() NewClientWithOpts err=", err)
@@ -50,7 +51,7 @@ func (client *dockerContainerClient) createContainer(image string, dirName strin
 			Memory:   100 * 1024 * 1024, // 限制100MB内存
 			CPUQuota: 50000,             // 限制50% CPU
 		},
-		Binds: []string{fmt.Sprintf("/tmp/tmpDir/%s:/app", dirName)}, // 挂载宿主机目录到容器内/mnt
+		Binds: []string{fmt.Sprintf("/tmp/%s:/app", dirName)}, // 挂载宿主机目录到容器内/mnt
 	}
 
 	resp, err := client.cli.ContainerCreate(
@@ -69,20 +70,20 @@ func (client *dockerContainerClient) createContainer(image string, dirName strin
 }
 
 // RmContainer 删除指定id容器
-func (client *dockerContainerClient) rmContainer(id string) error {
-	// 设置删除选项
-	option := container.RemoveOptions{
-		RemoveVolumes: true,
-		RemoveLinks:   true,
-		Force:         true,
-	}
-	err := client.cli.ContainerRemove(client.ctx, id, option)
-	if err != nil {
-		log.Println("domain.client.entity.rmContainer() ContainerRemove err=", err)
-		return fmt.Errorf("删除容器失败:%v", err)
-	}
-	return nil
-}
+//func (client *dockerContainerClient) rmContainer(id string) error {
+//	// 设置删除选项
+//	option := container.RemoveOptions{
+//		RemoveVolumes: true,
+//		RemoveLinks:   true,
+//		Force:         true,
+//	}
+//	err := client.cli.ContainerRemove(client.ctx, id, option)
+//	if err != nil {
+//		log.Println("domain.client.entity.rmContainer() ContainerRemove err=", err)
+//		return fmt.Errorf("删除容器失败:%v", err)
+//	}
+//	return nil
+//}
 
 // StopContainer 停止指定id容器
 func (client *dockerContainerClient) stopContainer(id string) error {
@@ -90,6 +91,17 @@ func (client *dockerContainerClient) stopContainer(id string) error {
 	if err != nil {
 		log.Println("domain.client.entity.stopContainer() ContainerStop err=", err)
 		return fmt.Errorf("停止容器失败:%v", err)
+	}
+	// 设置删除选项
+	option := container.RemoveOptions{
+		RemoveVolumes: true,
+		RemoveLinks:   true,
+		Force:         true,
+	}
+	err = client.cli.ContainerRemove(client.ctx, id, option)
+	if err != nil {
+		log.Println("domain.client.entity.rmContainer() ContainerRemove err=", err)
+		return fmt.Errorf("删除容器失败:%v", err)
 	}
 	return nil
 }
@@ -105,7 +117,6 @@ func (client *dockerContainerClient) getImageName(lang string) string {
 		"c++":    "code-runner-cpp",
 	}
 	if ext, ok := extensionMap[lang]; ok {
-		log.Println("domain.client.entity.getImageName() extensionMap err=", ext)
 		return ext
 	}
 	return ""
@@ -122,7 +133,6 @@ func (client *dockerContainerClient) getFileExtension(lang string) (string, erro
 		"c++":    "cpp",
 	}
 	if ext, ok := extensionMap[lang]; ok {
-		log.Println("domain.client.entity.getFileExtension() extensionMap err=", ext)
 		return ext, nil
 	}
 	return "", fmt.Errorf("当前服务不支持此类型")
@@ -134,7 +144,7 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 	response.CallBackUrl = request.CallBackUrl
 	// 1. 生成唯一临时目录
 	uniqueID := uuid.New().String()
-	tempDir := filepath.Join("/tmp/tmpDir", uniqueID)
+	tempDir := filepath.Join("/tmp", uniqueID)
 	if err := os.MkdirAll(tempDir, 0755); err != nil {
 		log.Printf("创建临时目录失败: %v", err)
 		return response, fmt.Errorf("docker客户端错误")
@@ -167,10 +177,6 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 		return response, nil
 	}
 	containerID := resp.ID
-	defer func() { // 确保容器最终被清理
-		_ = client.stopContainer(containerID)
-		_ = client.rmContainer(containerID)
-	}()
 
 	// 4. 启动容器
 	if err := client.cli.ContainerStart(client.ctx, containerID, container.StartOptions{}); err != nil {
@@ -178,19 +184,21 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 		response.Err = fmt.Errorf("docker客户端错误").Error()
 		return response, nil
 	}
-
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	// 5. 等待容器执行完成
-	statusCh, errCh := client.cli.ContainerWait(client.ctx, containerID, container.WaitConditionNotRunning)
+	statusCh, errCh := client.cli.ContainerWait(ctx, containerID, container.WaitConditionNotRunning)
 	select {
 	case err := <-errCh:
 		log.Printf("容器执行异常: %v", err)
 		response.Err = fmt.Errorf("docker客户端错误").Error()
 		return response, nil
-	case <-client.ctx.Done():
+	case <-ctx.Done():
 		log.Printf("超时取消:")
 		response.Err = fmt.Errorf("超时取消").Error()
 		return response, nil
 	case <-statusCh: // 正常退出
+
 	}
 
 	// 6. 读取容器日志
@@ -205,7 +213,10 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 		return response, nil
 	}
 	defer logs.Close()
-
+	//停止容器
+	_ = client.stopContainer(containerID)
+	//删除容器
+	//_ = client.rmContainer(containerID)
 	logContent, _ := io.ReadAll(logs)
 	response.Result = string(logContent)
 	return response, nil
