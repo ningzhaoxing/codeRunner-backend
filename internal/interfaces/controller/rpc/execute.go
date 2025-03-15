@@ -4,6 +4,7 @@ import (
 	"codeRunner-siwu/api/proto"
 	"codeRunner-siwu/internal/application/service"
 	"context"
+	"fmt"
 	"log"
 )
 
@@ -16,6 +17,7 @@ func NewServer(websocketServer *service.WebsocketServer) *Server {
 }
 
 func (s *Server) Execute(ctx context.Context, in *proto.ExecuteRequest) (*proto.ExecuteResponse, error) {
+	fmt.Println("执行execute")
 	err := s.RunServer.Execute(in)
 	if err != nil {
 		log.Println("interfaces-controller-rpc-execute Execute的 s.RunServer.Execute err=", err)

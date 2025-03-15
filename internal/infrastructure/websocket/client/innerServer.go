@@ -147,7 +147,7 @@ func (i *Client) Send(msg *proto.ExecuteResponse) error {
 		log.Println("infrastructure-websocket-client innerServer Send() 的 json.Marshal err=", err)
 		return err
 	}
-
+	fmt.Println(bytes.NewBuffer(data))
 	// 发送msg
 	req, err := http.NewRequest("POST", msg.CallBackUrl, bytes.NewBuffer(data))
 

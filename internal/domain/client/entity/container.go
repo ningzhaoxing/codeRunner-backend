@@ -26,8 +26,8 @@ type dockerContainerClient struct {
 // NewDockerClient 新构造函数：通过完整host地址连接
 func NewDockerClient(ctx context.Context) (*dockerContainerClient, error) {
 	cli, err := client.NewClientWithOpts(
-		client.WithHost("tcp://192.168.10.19:2374"),
-		client.WithAPIVersionNegotiation(), // 自动协商API版本
+		client.WithHost("tcp://192.168.10.19:2375"),
+		client.WithVersion("1.45"), // 自动协商API版本
 	)
 	if err != nil {
 		log.Println("domain.client.entity.NewDockerClient() NewClientWithOpts err=", err)
@@ -98,7 +98,7 @@ func (client *dockerContainerClient) stopContainer(id string) error {
 func (client *dockerContainerClient) getImageName(lang string) string {
 	lang = strings.ToLower(lang)
 	extensionMap := map[string]string{
-		"go":     "code-runner--go",
+		"go":     "code-runner-go",
 		"python": "code-runner-python",
 		"node":   "code-runner-js",
 		"java":   "code-runner-java",

@@ -22,12 +22,12 @@ func HandleServer(websocketServer *service.WebsocketServer) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		weightString := c.Query("weight") // 获取服务器权重
 		weight, err := strconv.ParseInt(weightString, 10, 64)
-
 		if err != nil {
 			log.Println("权重转换错误 err", err)
 			return
 		}
 
+		// 升级为websocket
 		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 		if err != nil {
 			return
@@ -35,9 +35,22 @@ func HandleServer(websocketServer *service.WebsocketServer) gin.HandlerFunc {
 
 		// 将该服务器添加到服务器管理
 		clientId := websocketServer.Add(conn, weight)
+		defer func(websocketServer *service.WebsocketServer, id string) {
+			err := websocketServer.Remove(id)
+			if err != nil {
+				if err != nil {
+					log.Println("interfaces.controller.ws.server HandleServer() Remove err=", err)
+					return
+				}
+			}
+		}(websocketServer, clientId)
 
 		// 启动心跳检测
-		heartBeat(conn, clientId, websocketServer)
+		err = heartHandler(conn)
+		if err != nil {
+			log.Println("interfaces.controller.ws.server HandleServer() heartHandler err=", err)
+			return
+		}
 
 		for {
 			_, _, err := conn.ReadMessage()
@@ -49,15 +62,17 @@ func HandleServer(websocketServer *service.WebsocketServer) gin.HandlerFunc {
 	}
 }
 
-func heartBeat(conn *websocket.Conn, clientId string, websocketServer *service.WebsocketServer) {
-	// 设置心跳检测参数
-	pongWait := 60 * time.Second
-
-	// 设置读取超时时间
-	err := conn.SetReadDeadline(time.Now().Add(pongWait))
+func heartHandler(conn *websocket.Conn) error {
+	err := conn.SetReadDeadline(time.Now().Add(30 * time.Second))
 	if err != nil {
-		log.Println("controller.ws.HandleServer() SetReadDeadline err=", err)
-		websocketServer.Remove(clientId)
-		return
+		return err
 	}
+	conn.SetPingHandler(func(string) error {
+		err := conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	return nil
 }
