@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type DockerContainer interface {
@@ -176,19 +177,21 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 		response.Err = fmt.Errorf("docker客户端错误").Error()
 		return response, nil
 	}
-
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	// 5. 等待容器执行完成
-	statusCh, errCh := client.cli.ContainerWait(client.ctx, containerID, container.WaitConditionNotRunning)
+	statusCh, errCh := client.cli.ContainerWait(ctx, containerID, container.WaitConditionNotRunning)
 	select {
 	case err := <-errCh:
 		log.Printf("容器执行异常: %v", err)
 		response.Err = fmt.Errorf("docker客户端错误").Error()
 		return response, nil
-	case <-client.ctx.Done():
+	case <-ctx.Done():
 		log.Printf("超时取消:")
 		response.Err = fmt.Errorf("超时取消").Error()
 		return response, nil
 	case <-statusCh: // 正常退出
+
 	}
 
 	// 6. 读取容器日志
