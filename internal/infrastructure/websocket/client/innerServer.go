@@ -51,7 +51,7 @@ func (i *Client) connect() error {
 	}
 
 	// 建立连接
-	url := "ws://localhost:7979/ws?weight=1"
+	url := "ws://192.168.241.1:7979/ws?weight=1"
 	//url := fmt.Sprintf("ws://%s:%s/%s?%s", i.targetServer.host, i.targetServer.port, i.targetServer.path, i.targetServer.rowQuery)
 	conn, _, err := dialer.Dial(url, nil)
 
@@ -94,9 +94,6 @@ func (i *Client) startPing() {
 	ticker := time.NewTicker(i.pingPeriod)
 	defer ticker.Stop()
 
-	if i.conn != nil {
-		fmt.Println("------------")
-	}
 	// 进行心跳检测
 	for {
 		select {
