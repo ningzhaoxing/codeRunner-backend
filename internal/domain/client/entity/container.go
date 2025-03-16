@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -161,22 +162,12 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 		return response, nil
 	}
 
-	codePath := fmt.Sprintf("%s/main.%s", tempDir, ext)
-	file, err := os.Create(codePath)
-	if err != nil {
-		log.Printf("创建代码文件失败: %v", err)
-		response.Err = "docker客户端错误"
-		return response, nil
-	}
-	defer file.Close()
-
-	_, err = file.WriteString(request.CodeBlock)
-	if err != nil {
+	codePath := filepath.Join(tempDir, fmt.Sprintf("main.%s", ext)) // 正确拼接路径
+	if err := os.WriteFile(codePath, []byte(request.CodeBlock), 0644); err != nil {
 		log.Printf("写入代码文件失败: %v", err)
 		response.Err = "docker客户端错误"
 		return response, nil
 	}
-
 	// 3. 创建并启动容器
 	imageName := client.getImageName(request.Language)
 	if imageName == "" {
