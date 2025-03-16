@@ -150,25 +150,25 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 	response.Id = request.Id
 	response.Uid = request.Uid
 	response.CallBackUrl = request.CallBackUrl
-	// 1. 生成唯一临时目录
+	// 1. 生成唯一临时目录（使用系统标准临时目录）
 	uniqueID := uuid.New().String()
-	tempDir := filepath.Join("/tmp", uniqueID)
+	tempDir := filepath.Join(os.TempDir(), uniqueID) // 更可靠的临时目录
 	if err := os.MkdirAll(tempDir, 0755); err != nil {
 		log.Printf("创建临时目录失败: %v", err)
 		return response, fmt.Errorf("docker客户端错误")
 	}
-	defer os.RemoveAll(tempDir) // 确保目录最终被删除
+	defer os.RemoveAll(tempDir)
 
-	// 2. 创建代码文件（根据语言扩展名）
+	// 2. 创建代码文件
 	ext, err := client.getFileExtension(request.Language)
 	if err != nil {
-		response.Err = fmt.Errorf("不支持的语言类型: %s", request.Language).Error()
+		response.Err = fmt.Sprintf("不支持的语言类型: %s", request.Language)
 		return response, nil
 	}
-	codePath := filepath.Join(tempDir, fmt.Sprintf("main.%s", ext))
+	codePath := filepath.Join(tempDir, fmt.Sprintf("main.%s", ext)) // 正确拼接路径
 	if err := os.WriteFile(codePath, []byte(request.CodeBlock), 0644); err != nil {
 		log.Printf("写入代码文件失败: %v", err)
-		response.Err = fmt.Errorf("docker客户端错误").Error()
+		response.Err = "docker客户端错误"
 		return response, nil
 	}
 
