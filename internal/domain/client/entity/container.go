@@ -167,8 +167,8 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 		response.Err = fmt.Sprintf("不支持的语言类型: %s", request.Language)
 		return response, nil
 	}
+
 	codePath := fmt.Sprintf("%s/%s", tempDir, fmt.Sprintf("main.%s", ext))
-	fmt.Println(codePath)
 	if err := os.WriteFile(codePath, []byte(request.CodeBlock), 0644); err != nil {
 		log.Printf("写入代码文件失败: %v", err)
 		response.Err = "docker客户端错误"
