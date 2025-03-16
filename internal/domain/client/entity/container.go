@@ -204,17 +204,12 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 		log.Printf("容器执行异常: %v", err)
 		response.Err = fmt.Errorf("docker客户端错误").Error()
 		return response, nil
-	//case <-ctx.Done():
-	//	log.Printf("超时取消:")
-	//	response.Err = fmt.Errorf("超时取消").Error()
-	//	return response, nil
+	case <-ctx.Done():
+		log.Printf("超时取消:")
+		response.Err = fmt.Errorf("超时取消").Error()
+		return response, nil
 	case <-statusCh: // 正常退出
-
 	}
-
-	time.Sleep(10000 * time.Second)
-
-	//time.Sleep(100 * time.Second)
 
 	// 6. 读取容器日志
 	logs, err := client.cli.ContainerLogs(
@@ -231,7 +226,6 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 	//停止容器
 	defer client.stopContainer(containerID)
 	//删除容器
-	//_ = client.rmContainer(containerID)
 	logContent, _ := io.ReadAll(logs)
 	response.Result = string(logContent)
 	return response, nil

@@ -51,8 +51,9 @@ func (i *Client) connect() error {
 	}
 
 	// 建立连接
-	url := "ws://192.168.241.1:7979/ws?weight=1"
-	//url := fmt.Sprintf("ws://%s:%s/%s?%s", i.targetServer.host, i.targetServer.port, i.targetServer.path, i.targetServer.rowQuery)
+	url := "ws://localhost:7979/ws?weight=1"
+	//url := fmt.Sprintf("ws://%s:%s/%s?%s", "8.154.36.180", i.targetServer.port, i.targetServer.path, i.targetServer.rowQuery)
+	fmt.Println(url)
 	conn, _, err := dialer.Dial(url, nil)
 
 	if err != nil {
@@ -138,15 +139,20 @@ func (i *Client) Read() (*proto.ExecuteRequest, error) {
 
 // Send 将msg通过post发送到回调url
 func (i *Client) Send(msg *proto.ExecuteResponse) error {
+	fmt.Println("开始发送")
 	// 序列化msg
 	data, err := json.Marshal(*msg)
 	if err != nil {
 		log.Println("infrastructure-websocket-client innerServer Send() 的 json.Marshal err=", err)
 		return err
 	}
-	fmt.Println(bytes.NewBuffer(data))
+	fmt.Println(bytes.NewBuffer(data), "----")
 	// 发送msg
 	req, err := http.NewRequest("POST", msg.CallBackUrl, bytes.NewBuffer(data))
+	if err != nil {
+		log.Println("infrastructure-websocket-client innerServer Send() 的 client.NewRequest err=", err)
+		return err
+	}
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -156,6 +162,7 @@ func (i *Client) Send(msg *proto.ExecuteResponse) error {
 	}
 
 	if resp.StatusCode != 200 {
+		log.Println("infrastructure-websocket-client innerServer Send() 的 resp.StatusCode 发送失败", resp.StatusCode)
 		return errors.ResultSendFail
 	}
 	return nil

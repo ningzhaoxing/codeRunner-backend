@@ -44,6 +44,7 @@ func (w *WebsocketClient) Run(weight int64) error {
 			log.Println("application.service.Run() Read err=", err)
 			continue
 		}
+		fmt.Println(msg)
 
 		// 执行代码
 		res, err := w.RunCode(msg)
