@@ -55,9 +55,9 @@ func (client *dockerContainerClient) createContainer(image string, dirName strin
 		},
 		Mounts: []mount.Mount{
 			{
-				Type:   mount.TypeBind,             // 使用 bind 挂载
-				Source: fmt.Sprintf("%s", dirName), // 第二个容器内的目录
-				Target: "/app",                     // 第一个容器中的目标挂载点
+				Type:   mount.TypeBind,                                             // 使用 bind 挂载
+				Source: fmt.Sprintf("%s", strings.TrimSuffix(dirName, "/main.go")), // 使用父目录进行挂载
+				Target: "/app",                                                     // 子容器中的目标挂载点
 			},
 		},
 	}
@@ -159,7 +159,7 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 		return response, nil
 	}
 
-	codePath := fmt.Sprintf("%s/%s", tempDir, fmt.Sprintf("main.%s", ext))
+	codePath := fmt.Sprintf("%s/main.%s", tempDir, ext)
 	file, err := os.Create(codePath)
 	if err != nil {
 		log.Printf("创建代码文件失败: %v", err)
