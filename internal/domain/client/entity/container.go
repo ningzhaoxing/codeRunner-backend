@@ -145,7 +145,8 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 	response.CallBackUrl = request.CallBackUrl
 	// 1. 生成唯一临时目录（使用系统标准临时目录）
 	uniqueID := uuid.New().String()
-	tempDir := fmt.Sprintf("/tmp/tmpCodeRunner/%s", uniqueID)
+
+	tempDir := fmt.Sprintf("/tmp/%s", uniqueID)
 	if err := os.MkdirAll(tempDir, 0755); err != nil {
 		log.Printf("创建临时目录失败: %v", err)
 		return response, fmt.Errorf("docker客户端错误")

@@ -51,8 +51,8 @@ func (i *Client) connect() error {
 	}
 
 	// 建立连接
-	url := "ws://localhost:7979/ws?weight=1"
-	//url := fmt.Sprintf("ws://%s:%s/%s?%s", "8.154.36.180", i.targetServer.port, i.targetServer.path, i.targetServer.rowQuery)
+	//url := "ws://localhost:7979/ws?weight=1"
+	url := fmt.Sprintf("ws://%s:%s/%s?%s", "8.154.36.180", i.targetServer.port, i.targetServer.path, i.targetServer.rowQuery)
 	fmt.Println(url)
 	conn, _, err := dialer.Dial(url, nil)
 
@@ -108,7 +108,6 @@ func (i *Client) startPing() {
 					return
 				}
 			}
-			fmt.Println("心跳發送成功！")
 		// 结束心跳检测
 		case <-i.stopPingCh:
 			return

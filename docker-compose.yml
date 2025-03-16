@@ -7,7 +7,7 @@ services:
       dockerfile: builds/api/Dockerfile
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./tmp:/app/tmp
+      - /tmp:/app/tmp:shared
     environment:
       - APP_ENV=production
       - DOCKER_HOST=unix:///var/run/docker.sock
