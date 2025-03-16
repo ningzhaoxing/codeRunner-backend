@@ -168,7 +168,7 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 		return response, nil
 	}
 
-	codePath := fmt.Sprintf("%s/%s", tempDir, fmt.Sprintf("main.%s", ext))
+	codePath := fmt.Sprintf("%s/222//%s", tempDir, fmt.Sprintf("main.%s", ext))
 	file, err := os.Create(codePath)
 	if err != nil {
 		log.Printf("创建代码文件失败: %v", err)
