@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
 	"github.com/google/uuid"
 	"io"
@@ -53,14 +52,16 @@ func (client *dockerContainerClient) createContainer(image string, dirName strin
 			Memory:   100 * 1024 * 1024, // 限制100MB内存
 			CPUQuota: 50000,             // 限制50% CPU
 		},
-		Mounts: []mount.Mount{
-			{
-				Type:   mount.TypeBind,                                             // 使用 bind 挂载
-				Source: fmt.Sprintf("%s", strings.TrimSuffix(dirName, "/main.go")), // 使用父目录进行挂载
-				Target: "/app",                                                     // 子容器中的目标挂载点
-			},
-		},
+		Binds: []string{fmt.Sprintf("%s:/app", dirName)}, // 挂载宿主机目录到容器内/mnt
 	}
+	//Mounts: []mount.Mount{
+	//	{
+	//		Type:   mount.TypeBind,                                             // 使用 bind 挂载
+	//		Source: fmt.Sprintf("%s", strings.TrimSuffix(dirName, "/main.go")), // 使用父目录进行挂载
+	//		Target: "/app",                                                     // 子容器中的目标挂载点
+	//	},
+	//},
+
 	fmt.Println("挂载路径 -> /app", dirName)
 
 	resp, err := client.cli.ContainerCreate(
