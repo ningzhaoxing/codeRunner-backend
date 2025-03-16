@@ -159,7 +159,7 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 		log.Printf("创建临时目录失败: %v", err)
 		return response, fmt.Errorf("docker客户端错误")
 	}
-	defer os.RemoveAll(tempDir)
+	//defer os.RemoveAll(tempDir)
 
 	// 2. 创建代码文件
 	ext, err := client.getFileExtension(request.Language)
