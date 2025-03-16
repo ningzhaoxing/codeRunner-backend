@@ -176,6 +176,11 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 		response.Err = "docker客户端错误"
 		return response, nil
 	}
+	if err := file.Sync(); err != nil { // 强制同步到磁盘
+		log.Printf("同步文件失败: %v", err)
+		response.Err = "docker客户端错误"
+		return response, nil
+	}
 	// 3. 创建并启动容器
 	imageName := client.getImageName(request.Language)
 	if imageName == "" {
