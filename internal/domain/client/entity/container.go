@@ -169,7 +169,9 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 	}
 
 	codePath := fmt.Sprintf("%s/%s", tempDir, fmt.Sprintf("main.%s", ext))
-	if err := os.WriteFile(codePath, []byte(request.CodeBlock), 0644); err != nil {
+	file, err := os.Create(codePath)
+	_, err = file.WriteString(request.CodeBlock)
+	if err != nil {
 		log.Printf("写入代码文件失败: %v", err)
 		response.Err = "docker客户端错误"
 		return response, nil
