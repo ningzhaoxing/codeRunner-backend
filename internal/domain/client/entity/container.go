@@ -168,6 +168,8 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 		response.Err = "docker客户端错误"
 		return response, nil
 	}
+	defer file.Close()
+
 	_, err = file.WriteString(request.CodeBlock)
 	if err != nil {
 		log.Printf("写入代码文件失败: %v", err)
