@@ -14,8 +14,6 @@ services:
     ports:
       - "7979:7979"
       - "50011:50011"
-    networks:
-      - code-runner-net
 
   # 以下服务仅用于构建镜像，不自动运行
   go-runner:
@@ -52,10 +50,3 @@ services:
        context: .
        dockerfile: builds/runners/js.Dockerfile
      profiles: [ "build-only" ]
-
-networks:
-  code-runner-net:
-    driver: bridge
-
-volumes:
-  etcd-data:

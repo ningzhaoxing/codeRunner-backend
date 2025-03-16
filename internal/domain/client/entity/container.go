@@ -10,7 +10,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 )
@@ -40,8 +39,10 @@ func NewDockerClient(ctx context.Context) (*dockerContainerClient, error) {
 // CreateContainer 创建指定容器
 func (client *dockerContainerClient) createContainer(image string, dirName string) (container.CreateResponse, error) {
 	config := &container.Config{
-		Image: image,
-		User:  "nobody", // 以非特权用户运行
+		Image:      image,
+		User:       "nobody", // 以非特权用户运行
+		WorkingDir: "/app",
+		Cmd:        []string{"sh", "-c", "go run main.go"},
 	}
 
 	hostConfig := &container.HostConfig{
@@ -53,6 +54,7 @@ func (client *dockerContainerClient) createContainer(image string, dirName strin
 		},
 		Binds: []string{fmt.Sprintf("/tmp/%s:/app", dirName)}, // 挂载宿主机目录到容器内/mnt
 	}
+	fmt.Println("挂载路径 -> /app", dirName)
 
 	resp, err := client.cli.ContainerCreate(
 		client.ctx,
@@ -93,7 +95,7 @@ func (client *dockerContainerClient) stopContainer(id string) error {
 		return fmt.Errorf("停止容器失败: %v", err)
 	}
 
-	// 2. 断开容器所有网络连接（关键修复）
+	// 2. 断开容器所有网络连接
 	if err := client.cli.NetworkDisconnect(client.ctx, "bridge", id, true); err != nil {
 		log.Printf("断开默认网络失败: %v", err)
 		return err
@@ -152,7 +154,7 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 	response.CallBackUrl = request.CallBackUrl
 	// 1. 生成唯一临时目录（使用系统标准临时目录）
 	uniqueID := uuid.New().String()
-	tempDir := filepath.Join(os.TempDir(), uniqueID) // 更可靠的临时目录
+	tempDir := fmt.Sprintf("./tmpCodeRunner/%s", uniqueID)
 	if err := os.MkdirAll(tempDir, 0755); err != nil {
 		log.Printf("创建临时目录失败: %v", err)
 		return response, fmt.Errorf("docker客户端错误")
@@ -165,7 +167,8 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 		response.Err = fmt.Sprintf("不支持的语言类型: %s", request.Language)
 		return response, nil
 	}
-	codePath := filepath.Join(tempDir, fmt.Sprintf("main.%s", ext)) // 正确拼接路径
+	codePath := fmt.Sprintf("%s/%s", tempDir, fmt.Sprintf("main.%s", ext))
+	fmt.Println(codePath)
 	if err := os.WriteFile(codePath, []byte(request.CodeBlock), 0644); err != nil {
 		log.Printf("写入代码文件失败: %v", err)
 		response.Err = "docker客户端错误"
@@ -201,13 +204,17 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 		log.Printf("容器执行异常: %v", err)
 		response.Err = fmt.Errorf("docker客户端错误").Error()
 		return response, nil
-	case <-ctx.Done():
-		log.Printf("超时取消:")
-		response.Err = fmt.Errorf("超时取消").Error()
-		return response, nil
+	//case <-ctx.Done():
+	//	log.Printf("超时取消:")
+	//	response.Err = fmt.Errorf("超时取消").Error()
+	//	return response, nil
 	case <-statusCh: // 正常退出
 
 	}
+
+	time.Sleep(10000 * time.Second)
+
+	//time.Sleep(100 * time.Second)
 
 	// 6. 读取容器日志
 	logs, err := client.cli.ContainerLogs(
@@ -222,7 +229,7 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 	}
 	defer logs.Close()
 	//停止容器
-	_ = client.stopContainer(containerID)
+	defer client.stopContainer(containerID)
 	//删除容器
 	//_ = client.rmContainer(containerID)
 	logContent, _ := io.ReadAll(logs)
