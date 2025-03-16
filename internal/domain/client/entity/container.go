@@ -56,8 +56,8 @@ func (client *dockerContainerClient) createContainer(image string, dirName strin
 		Mounts: []mount.Mount{
 			{
 				Type:   mount.TypeBind,             // 使用 bind 挂载
-				Source: "/app",                     // 第二个容器内的目录
-				Target: fmt.Sprintf("%s", dirName), // 第一个容器中的目标挂载点
+				Source: fmt.Sprintf("%s", dirName), // 第二个容器内的目录
+				Target: "/app",                     // 第一个容器中的目标挂载点
 			},
 		},
 	}
