@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
 	"github.com/google/uuid"
 	"io"
@@ -52,7 +53,14 @@ func (client *dockerContainerClient) createContainer(image string, dirName strin
 			Memory:   100 * 1024 * 1024, // 限制100MB内存
 			CPUQuota: 50000,             // 限制50% CPU
 		},
-		Binds: []string{fmt.Sprintf("%s:/app", dirName)}, // 挂载宿主机目录到容器内/mnt
+		//Binds: []string{fmt.Sprintf("%s:/app", dirName)}, // 挂载宿主机目录到容器内/mnt
+		Mounts: []mount.Mount{
+			{
+				Type:   mount.TypeBind,             // 使用 bind 挂载
+				Source: "/app",                     // 第二个容器内的目录
+				Target: fmt.Sprintf("%s", dirName), // 第一个容器中的目标挂载点
+			},
+		},
 	}
 	fmt.Println("挂载路径 -> /app", dirName)
 
@@ -70,22 +78,6 @@ func (client *dockerContainerClient) createContainer(image string, dirName strin
 	}
 	return resp, nil
 }
-
-// RmContainer 删除指定id容器
-//func (client *dockerContainerClient) rmContainer(id string) error {
-//	// 设置删除选项
-//	option := container.RemoveOptions{
-//		RemoveVolumes: true,
-//		RemoveLinks:   true,
-//		Force:         true,
-//	}
-//	err := client.cli.ContainerRemove(client.ctx, id, option)
-//	if err != nil {
-//		log.Println("domain.client.entity.rmContainer() ContainerRemove err=", err)
-//		return fmt.Errorf("删除容器失败:%v", err)
-//	}
-//	return nil
-//}
 
 // StopContainer 停止指定id容器
 func (client *dockerContainerClient) stopContainer(id string) error {
