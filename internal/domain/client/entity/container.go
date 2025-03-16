@@ -42,7 +42,6 @@ func (client *dockerContainerClient) createContainer(image string, dirName strin
 		Image:      image,
 		User:       "nobody", // 以非特权用户运行
 		WorkingDir: "/app",
-		Cmd:        []string{"sh", "-c", "go run main.go"},
 	}
 
 	hostConfig := &container.HostConfig{
@@ -147,7 +146,7 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 	// 1. 生成唯一临时目录（使用系统标准临时目录）
 	uniqueID := uuid.New().String()
 
-	tempDir := fmt.Sprintf("/tmp/%s", uniqueID)
+	tempDir := fmt.Sprintf("/app/tmp/%s", uniqueID)
 	if err := os.MkdirAll(tempDir, 0755); err != nil {
 		log.Printf("创建临时目录失败: %v", err)
 		return response, fmt.Errorf("docker客户端错误")
