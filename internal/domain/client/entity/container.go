@@ -183,7 +183,7 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 		response.Err = "不支持的语言类型"
 		return response, nil
 	}
-	resp, err := client.createContainer(imageName, codePath)
+	resp, err := client.createContainer(imageName, tempDir)
 	if err != nil {
 		log.Printf("容器创建失败: %v", err)
 		response.Err = fmt.Errorf("docker客户端错误").Error()
