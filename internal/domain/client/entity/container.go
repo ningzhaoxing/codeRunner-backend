@@ -40,21 +40,32 @@ func NewDockerClient(ctx context.Context) (*dockerContainerClient, error) {
 func (client *dockerContainerClient) createContainer(image string, dirName string) (container.CreateResponse, error) {
 	config := &container.Config{
 		Image:      image,
-		User:       "root", // 以非特权用户运行
+		User:       "root", 
 		WorkingDir: "/app",
+		// 添加环境变量，确保 Go 模块初始化
+		Env: []string{
+			"GO111MODULE=on",
+			"GOPROXY=https://goproxy.cn,direct",
+		},
 	}
 
 	hostConfig := &container.HostConfig{
 		ReadonlyRootfs: false,           // 只读文件系统
 		CapDrop:        []string{"ALL"}, // 移除所有特权能力
 		Resources: container.Resources{
-			Memory:   100 * 1024 * 1024, // 限制100MB内存
-			CPUQuota: 50000,             // 限制50% CPU
+			Memory:     512 * 1024 * 1024, // 增加到512MB内存
+			MemorySwap: 512 * 1024 * 1024, // 限制swap使用
+			CPUQuota:   100000,            // 限制100% CPU
+			CPUPeriod:  100000,            // CPU CFS (Completely Fair Scheduler) 周期
+			CPUCount:   1,                 // 限制使用1个CPU核心
 		},
-		Binds: []string{fmt.Sprintf("/tmp/%s:/app", dirName)}, // 挂载宿主机目录到容器内/mnt
+		Binds: []string{fmt.Sprintf("/tmp/%s:/app", dirName)}, // 挂载到容器的/app目录
 	}
 
-	fmt.Println("挂载路径 -> /app", dirName)
+	fmt.Printf("创建容器配置：\n")
+	fmt.Printf("镜像：%s\n", image)
+	fmt.Printf("工作目录：%s\n", config.WorkingDir)
+	fmt.Printf("挂载路径：%s\n", hostConfig.Binds[0])
 
 	resp, err := client.cli.ContainerCreate(
 		client.ctx,
@@ -144,7 +155,7 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 		log.Printf("创建临时目录失败: %v", err)
 		return response, fmt.Errorf("docker客户端错误")
 	}
-	//defer os.RemoveAll(tempDir)
+	defer os.RemoveAll(tempDir)
 
 	// 2. 创建代码文件
 	ext, err := client.getFileExtension(request.Language)
@@ -193,20 +204,46 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 		response.Err = fmt.Errorf("docker客户端错误").Error()
 		return response, nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	
+	// 设置30秒超时，防止程序无限运行
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	
 	// 5. 等待容器执行完成
 	statusCh, errCh := client.cli.ContainerWait(ctx, containerID, container.WaitConditionNotRunning)
 	select {
 	case err := <-errCh:
 		log.Printf("容器执行异常: %v", err)
-		response.Err = fmt.Errorf("docker客户端错误").Error()
+		// 获取容器日志以查看具体错误
+		logs, _ := client.cli.ContainerLogs(client.ctx, containerID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
+		if logs != nil {
+			logContent, _ := io.ReadAll(logs)
+			log.Printf("容器日志: %s", string(logContent))
+		}
+		response.Err = fmt.Errorf("容器执行异常: %v", err).Error()
 		return response, nil
 	case <-ctx.Done():
-		log.Printf("超时取消:")
-		response.Err = fmt.Errorf("超时取消").Error()
+		log.Printf("容器执行超时")
+		// 获取容器日志以查看执行状态
+		logs, _ := client.cli.ContainerLogs(client.ctx, containerID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
+		if logs != nil {
+			logContent, _ := io.ReadAll(logs)
+			log.Printf("容器日志: %s", string(logContent))
+		}
+		response.Err = fmt.Errorf("容器执行超时").Error()
 		return response, nil
-	case <-statusCh: // 正常退出
+	case status := <-statusCh:
+		log.Printf("容器执行完成，退出码: %d", status.StatusCode)
+		if status.StatusCode != 0 {
+			// 获取容器日志以查看错误信息
+			logs, _ := client.cli.ContainerLogs(client.ctx, containerID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
+			if logs != nil {
+				logContent, _ := io.ReadAll(logs)
+				log.Printf("容器日志: %s", string(logContent))
+			}
+			response.Err = fmt.Errorf("容器执行失败，退出码: %d", status.StatusCode).Error()
+			return response, nil
+		}
 	}
 
 	// 6. 读取容器日志
