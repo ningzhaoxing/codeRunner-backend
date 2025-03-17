@@ -40,7 +40,7 @@ func NewDockerClient(ctx context.Context) (*dockerContainerClient, error) {
 func (client *dockerContainerClient) createContainer(image string, dirName string) (container.CreateResponse, error) {
 	config := &container.Config{
 		Image:      image,
-		User:       "root", 
+		User:       "root",
 		WorkingDir: "/app",
 		// 添加环境变量，确保 Go 模块初始化
 		Env: []string{
@@ -145,19 +145,20 @@ func (client *dockerContainerClient) getFileExtension(lang string) (string, erro
 
 // 处理Docker日志格式
 func processDockerLogs(logContent []byte) string {
+
 	// 跳过Docker日志头（8字节）
 	if len(logContent) <= 8 {
 		return ""
 	}
-	
+
 	// 获取实际内容（跳过8字节头）
 	content := logContent[8:]
-	
+
 	// 移除末尾的换行符
 	if len(content) > 0 && content[len(content)-1] == '\n' {
 		content = content[:len(content)-1]
 	}
-	
+
 	return string(content)
 }
 
@@ -222,11 +223,11 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 		response.Err = fmt.Errorf("docker客户端错误").Error()
 		return response, nil
 	}
-	
+
 	// 设置30秒超时，防止程序无限运行
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	
+
 	// 5. 等待容器执行完成
 	statusCh, errCh := client.cli.ContainerWait(ctx, containerID, container.WaitConditionNotRunning)
 	select {
@@ -276,10 +277,10 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 		return response, nil
 	}
 	defer logs.Close()
-	
+
 	//停止容器
 	defer client.stopContainer(containerID)
-	
+
 	//读取并处理日志
 	logContent, _ := io.ReadAll(logs)
 	response.Result = processDockerLogs(logContent)
