@@ -51,7 +51,7 @@ func (client *dockerContainerClient) createContainer(image string, dirName strin
 			Memory:   100 * 1024 * 1024, // 限制100MB内存
 			CPUQuota: 50000,             // 限制50% CPU
 		},
-		Binds: []string{fmt.Sprintf("%s:/app", dirName)}, // 挂载宿主机目录到容器内/mnt
+		Binds: []string{fmt.Sprintf("/tmp/%s:/app", dirName)}, // 挂载宿主机目录到容器内/mnt
 	}
 
 	fmt.Println("挂载路径 -> /app", dirName)
@@ -179,7 +179,7 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 		response.Err = "不支持的语言类型"
 		return response, nil
 	}
-	resp, err := client.createContainer(imageName, tempDir)
+	resp, err := client.createContainer(imageName, uniqueID)
 	if err != nil {
 		log.Printf("容器创建失败: %v", err)
 		response.Err = fmt.Errorf("docker客户端错误").Error()
