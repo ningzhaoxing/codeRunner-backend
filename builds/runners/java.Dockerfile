@@ -13,4 +13,4 @@ RUN chown -R runner:runner /app
 USER runner
 
 # 容器启动时运行命令
-CMD ["sh", "-c", "javac Main.java && java Main"]
+CMD ["sh", "-c", "javac main.java && java main"]
