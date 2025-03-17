@@ -40,7 +40,7 @@ func NewDockerClient(ctx context.Context) (*dockerContainerClient, error) {
 func (client *dockerContainerClient) createContainer(image string, dirName string) (container.CreateResponse, error) {
 	config := &container.Config{
 		Image:      image,
-		User:       "nobody", // 以非特权用户运行
+		User:       "root", // 以非特权用户运行
 		WorkingDir: "/app",
 	}
 
@@ -53,13 +53,6 @@ func (client *dockerContainerClient) createContainer(image string, dirName strin
 		},
 		Binds: []string{fmt.Sprintf("%s:/app", dirName)}, // 挂载宿主机目录到容器内/mnt
 	}
-	//Mounts: []mount.Mount{
-	//	{
-	//		Type:   mount.TypeBind,                                             // 使用 bind 挂载
-	//		Source: fmt.Sprintf("%s", strings.TrimSuffix(dirName, "/main.go")), // 使用父目录进行挂载
-	//		Target: "/app",                                                     // 子容器中的目标挂载点
-	//	},
-	//},
 
 	fmt.Println("挂载路径 -> /app", dirName)
 
@@ -115,7 +108,7 @@ func (client *dockerContainerClient) getImageName(lang string) string {
 		"python": "code-runner-python",
 		"node":   "code-runner-js",
 		"java":   "code-runner-java",
-		"c++":    "code-runner-cpp",
+		"c":      "code-runner-cpp",
 	}
 	if ext, ok := extensionMap[lang]; ok {
 		return ext
@@ -131,7 +124,7 @@ func (client *dockerContainerClient) getFileExtension(lang string) (string, erro
 		"python": "py",
 		"node":   "js",
 		"java":   "java",
-		"c++":    "cpp",
+		"c":      "cpp",
 	}
 	if ext, ok := extensionMap[lang]; ok {
 		return ext, nil

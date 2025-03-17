@@ -16,5 +16,7 @@ USER runner
 ENV GO111MODULE=on \
     CGO_ENABLED=0
 
+RUN go mod init && go mod tidy
+
 # 容器启动时运行命令
 CMD ["go", "run", "main.go"]
