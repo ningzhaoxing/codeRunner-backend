@@ -143,6 +143,24 @@ func (client *dockerContainerClient) getFileExtension(lang string) (string, erro
 	return "", fmt.Errorf("当前服务不支持此类型")
 }
 
+// 处理Docker日志格式
+func processDockerLogs(logContent []byte) string {
+	// 跳过Docker日志头（8字节）
+	if len(logContent) <= 8 {
+		return ""
+	}
+	
+	// 获取实际内容（跳过8字节头）
+	content := logContent[8:]
+	
+	// 移除末尾的换行符
+	if len(content) > 0 && content[len(content)-1] == '\n' {
+		content = content[:len(content)-1]
+	}
+	
+	return string(content)
+}
+
 func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (response proto.ExecuteResponse, err error) {
 	response.Id = request.Id
 	response.Uid = request.Uid
@@ -258,10 +276,12 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 		return response, nil
 	}
 	defer logs.Close()
+	
 	//停止容器
 	defer client.stopContainer(containerID)
-	//删除容器
+	
+	//读取并处理日志
 	logContent, _ := io.ReadAll(logs)
-	response.Result = string(logContent)
+	response.Result = processDockerLogs(logContent)
 	return response, nil
 }
