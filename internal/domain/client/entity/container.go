@@ -162,53 +162,69 @@ func processDockerLogs(logContent []byte) string {
 	return string(content)
 }
 
+// 创建文件目录
+func (client *dockerContainerClient) createVolmn(uniqueID string) (tempDir string, err error) {
+	tempDir = fmt.Sprintf("/app/tmp/%s", uniqueID)
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		return "", err
+	}
+	return tempDir, nil
+}
+
+// 创建文件
+func (client *dockerContainerClient) createFile(code string, tempDir string, ext string) (file *os.File, err error) {
+	codePath := fmt.Sprintf("%s/main.%s", tempDir, ext)
+	file, err = os.Create(codePath)
+	if err != nil {
+		log.Printf("创建代码文件失败: %v", err)
+		return nil, err
+	}
+	_, err = file.WriteString(code)
+	if err != nil {
+		log.Printf("写入代码文件失败: %v", err)
+		return nil, err
+	}
+	if err := file.Sync(); err != nil { // 强制同步到磁盘
+		log.Printf("同步文件失败: %v", err)
+		return nil, err
+	}
+	return file, nil
+}
 func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (response proto.ExecuteResponse, err error) {
 	response.Id = request.Id
 	response.Uid = request.Uid
 	response.CallBackUrl = request.CallBackUrl
 	// 1. 生成唯一临时目录（使用系统标准临时目录）
 	uniqueID := uuid.New().String()
-
-	tempDir := fmt.Sprintf("/app/tmp/%s", uniqueID)
-	if err := os.MkdirAll(tempDir, 0755); err != nil {
+	//创建目录
+	tempDir, err := client.createVolmn(uniqueID)
+	if err != nil {
 		log.Printf("创建临时目录失败: %v", err)
 		return response, fmt.Errorf("docker客户端错误")
 	}
 	defer os.RemoveAll(tempDir)
 
-	// 2. 创建代码文件
+	// 2. 得到后缀
 	ext, err := client.getFileExtension(request.Language)
 	if err != nil {
 		response.Err = fmt.Sprintf("不支持的语言类型: %s", request.Language)
 		return response, nil
 	}
-
-	codePath := fmt.Sprintf("%s/main.%s", tempDir, ext)
-	file, err := os.Create(codePath)
+	// 3.创建文件
+	file, err := client.createFile(request.CodeBlock, tempDir, ext)
 	if err != nil {
-		log.Printf("创建代码文件失败: %v", err)
 		response.Err = "docker客户端错误"
 		return response, nil
 	}
 	defer file.Close()
 
-	_, err = file.WriteString(request.CodeBlock)
-	if err != nil {
-		log.Printf("写入代码文件失败: %v", err)
-		response.Err = "docker客户端错误"
-		return response, nil
-	}
-	if err := file.Sync(); err != nil { // 强制同步到磁盘
-		log.Printf("同步文件失败: %v", err)
-		response.Err = "docker客户端错误"
-		return response, nil
-	}
-	// 3. 创建并启动容器
+	// 4.得到镜像名
 	imageName := client.getImageName(request.Language)
 	if imageName == "" {
 		response.Err = "不支持的语言类型"
 		return response, nil
 	}
+	// 5.创建并启动容器
 	resp, err := client.createContainer(imageName, uniqueID)
 	if err != nil {
 		log.Printf("容器创建失败: %v", err)
@@ -225,7 +241,7 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 	}
 
 	// 设置30秒超时，防止程序无限运行
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
 	// 5. 等待容器执行完成
@@ -253,16 +269,6 @@ func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (res
 		return response, nil
 	case status := <-statusCh:
 		log.Printf("容器执行完成，退出码: %d", status.StatusCode)
-		if status.StatusCode != 0 {
-			// 获取容器日志以查看错误信息
-			logs, _ := client.cli.ContainerLogs(client.ctx, containerID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
-			if logs != nil {
-				logContent, _ := io.ReadAll(logs)
-				log.Printf("容器日志: %s", string(logContent))
-			}
-			response.Err = fmt.Errorf("容器执行失败，退出码: %d", status.StatusCode).Error()
-			return response, nil
-		}
 	}
 
 	// 6. 读取容器日志
