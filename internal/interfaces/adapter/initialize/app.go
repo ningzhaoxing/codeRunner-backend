@@ -1,7 +1,7 @@
 package initialize
 
 import (
-	"codeRunner-siwu/internal/application/service"
+	"codeRunner-siwu/internal/application/service/server"
 	"codeRunner-siwu/internal/interfaces/controller/ws"
 	"context"
 	"fmt"
@@ -13,7 +13,7 @@ func RunServer() {
 	ctx := context.Background()
 
 	// 创建websocket服务端实例(管理websocket客户端)，依赖注入
-	websocketServer := service.NewWebsocketServer()
+	websocketServer := server.NewServiceTmpl()
 
 	// 初始化配置
 	c, err := InitConfig()

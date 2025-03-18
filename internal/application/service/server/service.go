@@ -1,4 +1,4 @@
-package service
+package server
 
 import (
 	"codeRunner-siwu/api/proto"
@@ -9,33 +9,33 @@ import (
 	"log"
 )
 
-type RunServer interface {
+type Service interface {
 	Add(*websocket.Conn, int64) string
 	Remove(string) error
 	Execute(in *proto.ExecuteRequest) error
 }
 
-type WebsocketServer struct {
+type ServiceTmpl struct {
 	service.ClientManagerDomain
 }
 
-func NewWebsocketServer() *WebsocketServer {
-	return &WebsocketServer{
+func NewServiceTmpl() *ServiceTmpl {
+	return &ServiceTmpl{
 		ClientManagerDomain: service.NewClientManager(),
 	}
 }
 
-func (w *WebsocketServer) Add(conn *websocket.Conn, weight int64) string {
+func (w *ServiceTmpl) Add(conn *websocket.Conn, weight int64) string {
 	client := entity.NewClient(conn)
 	w.ClientManagerDomain.Add(client, weight)
 	return client.GetId()
 }
 
-func (w *WebsocketServer) Remove(id string) error {
+func (w *ServiceTmpl) Remove(id string) error {
 	return w.ClientManagerDomain.Remove(id)
 }
 
-func (w *WebsocketServer) Send(conn *websocket.Conn, in *proto.ExecuteRequest) error {
+func (w *ServiceTmpl) Send(conn *websocket.Conn, in *proto.ExecuteRequest) error {
 	msg, err := json.Marshal(*in)
 	if err != nil {
 		log.Println("application.service.Send() Marshal err=", err)
@@ -50,7 +50,7 @@ func (w *WebsocketServer) Send(conn *websocket.Conn, in *proto.ExecuteRequest) e
 	return nil
 }
 
-func (w *WebsocketServer) Execute(in *proto.ExecuteRequest) error {
+func (w *ServiceTmpl) Execute(in *proto.ExecuteRequest) error {
 	// 通过负载均衡获取服务器conn
 	server, err := w.ClientManagerDomain.GetServerByBalance()
 	if err != nil {

@@ -1,4 +1,4 @@
-package service
+package client
 
 import (
 	"codeRunner-siwu/api/proto"
@@ -11,27 +11,27 @@ import (
 	"log"
 )
 
-// RunCode 主要任务是执行代码，并将结果post到调用者
-type RunCode interface {
+// Service 主要任务是执行代码，并将结果post到调用者
+type Service interface {
 	Run(int64) error
 }
 
-// WebsocketClient websocket 客户端 -- 内网服务器
-type WebsocketClient struct {
+// ServiceImpl websocket 客户端 -- 内网服务器
+type ServiceImpl struct {
 	config *config.Config
 	service.InnerServerDomain
 }
 
-func NewWebsocketClient(config *config.Config, ctx context.Context) (*WebsocketClient, error) {
+func NewServiceImpl(config *config.Config, ctx context.Context) (*ServiceImpl, error) {
 	client, err := entity.NewInnerServer(ctx)
 	if err != nil {
-		log.Println("application.service.NewWebsocketClient() NewInnerServer err=", err)
+		log.Println("application.service.NewServiceImpl() NewInnerServer err=", err)
 		return nil, err
 	}
-	return &WebsocketClient{config: config, InnerServerDomain: client}, nil
+	return &ServiceImpl{config: config, InnerServerDomain: client}, nil
 }
 
-func (w *WebsocketClient) Run(weight int64) error {
+func (w *ServiceImpl) Run(weight int64) error {
 	if err := w.dail(weight); err != nil {
 		log.Println("application.service.Run() dail err=", err)
 		return err
@@ -49,7 +49,7 @@ func (w *WebsocketClient) Run(weight int64) error {
 		// 执行代码
 		res, err := w.RunCode(msg)
 		if err != nil {
-			log.Println("application.service.Run() RunCode err=", err)
+			log.Println("application.service.Run() Service err=", err)
 			continue
 		}
 
@@ -62,7 +62,7 @@ func (w *WebsocketClient) Run(weight int64) error {
 }
 
 // 向服务端建立连接
-func (w *WebsocketClient) dail(weight int64) error {
+func (w *ServiceImpl) dail(weight int64) error {
 	targetServer := client.NewTargetServer("8.154.36.180", "7979", "ws", fmt.Sprintf("weight=%d", weight))
 
 	err := w.InnerServerDomain.Dail(*targetServer)
@@ -73,7 +73,7 @@ func (w *WebsocketClient) dail(weight int64) error {
 	return nil
 }
 
-func (w *WebsocketClient) send(res *proto.ExecuteResponse) error {
+func (w *ServiceImpl) send(res *proto.ExecuteResponse) error {
 	if err := w.InnerServerDomain.Send(res); err != nil {
 		log.Println("application.service.send() Send err=", err)
 		return err

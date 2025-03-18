@@ -1,7 +1,7 @@
 package initialize
 
 import (
-	"codeRunner-siwu/internal/application/service"
+	"codeRunner-siwu/internal/application/service/server"
 	"codeRunner-siwu/internal/infrastructure/config"
 	"codeRunner-siwu/internal/interfaces/controller/ws"
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	"net/http"
 )
 
-func InitEngine(websocketServer *service.WebsocketServer, c *config.Config) {
+func InitEngine(websocketServer *server.ServiceTmpl, c *config.Config) {
 	r := gin.Default()
 
 	r.GET("/ws", ws.HandleServer(websocketServer))

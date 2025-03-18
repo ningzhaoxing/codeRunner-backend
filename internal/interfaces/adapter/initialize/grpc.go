@@ -1,7 +1,7 @@
 package initialize
 
 import (
-	"codeRunner-siwu/internal/application/service"
+	"codeRunner-siwu/internal/application/service/server"
 	"codeRunner-siwu/internal/infrastructure/config"
 	"codeRunner-siwu/internal/interfaces/controller/rpc"
 	"context"
@@ -11,7 +11,7 @@ import (
 	"net"
 )
 
-func InitGrpc(websocketServer *service.WebsocketServer, c *config.Config, ctx context.Context) (net.Listener, *grpc.Server, *clientv3.Client) {
+func InitGrpc(websocketServer *server.ServiceTmpl, c *config.Config, ctx context.Context) (net.Listener, *grpc.Server, *clientv3.Client) {
 	// 将grpc服务注册到etcd
 	etcdClient, err := EtcdRegister(ctx, c)
 	if err != nil {

@@ -37,7 +37,7 @@ func (i *InnerServer) Dail(targetServer client.TargetServer) error {
 func (i *InnerServer) RunCode(request *proto.ExecuteRequest) (*proto.ExecuteResponse, error) {
 	response, err := i.DockerContainer.RunCode(request)
 	if err != nil {
-		log.Println("domain.client.entity.RunCode() RunCode err=", err)
+		log.Println("domain.client.entity.Service() Service err=", err)
 		return nil, err
 	}
 	return &response, err

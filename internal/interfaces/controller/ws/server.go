@@ -1,7 +1,7 @@
 package ws
 
 import (
-	"codeRunner-siwu/internal/application/service"
+	"codeRunner-siwu/internal/application/service/server"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"log"
@@ -18,7 +18,7 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func HandleServer(websocketServer *service.WebsocketServer) gin.HandlerFunc {
+func HandleServer(websocketServer *server.ServiceTmpl) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		weightString := c.Query("weight") // 获取服务器权重
 		weight, err := strconv.ParseInt(weightString, 10, 64)
@@ -35,7 +35,7 @@ func HandleServer(websocketServer *service.WebsocketServer) gin.HandlerFunc {
 
 		// 将该服务器添加到服务器管理
 		clientId := websocketServer.Add(conn, weight)
-		defer func(websocketServer *service.WebsocketServer, id string) {
+		defer func(websocketServer *server.ServiceTmpl, id string) {
 			err := websocketServer.Remove(id)
 			if err != nil {
 				if err != nil {

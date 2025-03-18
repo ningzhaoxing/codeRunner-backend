@@ -1,4 +1,4 @@
-package service
+package auth
 
 import (
 	"codeRunner-siwu/api/proto"
@@ -6,16 +6,16 @@ import (
 	"log"
 )
 
-type tokenIssuer struct {
+type Service struct {
 	token.TokenIssuer
 }
 
-func NewToken() *tokenIssuer {
+func NewService() *Service {
 	tokenPublic := token.NewToken()
-	return &tokenIssuer{tokenPublic}
+	return &Service{tokenPublic}
 }
 
-func (t *tokenIssuer) GenerateToken(request *proto.GenerateTokenRequest) (response *proto.GenerateTokenResponse, err error) {
+func (t *Service) GenerateToken(request *proto.GenerateTokenRequest) (response *proto.GenerateTokenResponse, err error) {
 	response, err = t.TokenIssuer.Public(request)
 	if err != nil {
 		log.Println("application.service.GenerateToken() Public err=", err)

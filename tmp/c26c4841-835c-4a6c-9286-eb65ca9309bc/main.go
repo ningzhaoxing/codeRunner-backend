@@ -1,1 +1,0 @@
-func main{fmt.Println('111')}
