@@ -6,25 +6,20 @@ import (
 	"codeRunner-siwu/internal/domain/client/entity"
 	"codeRunner-siwu/internal/domain/server/service"
 	"codeRunner-siwu/internal/infrastructure/bananceStrategy/weightedRRBalance"
-	"codeRunner-siwu/internal/infrastructure/docker"
+	docker "codeRunner-siwu/internal/infrastructure/containerBasic"
 	client2 "codeRunner-siwu/internal/infrastructure/websocket/client"
 	"codeRunner-siwu/internal/interfaces/controller"
-	"context"
 )
 
 func serverServiceRegister() *server.ServiceImpl {
-
 	srv := server.NewServiceImpl(service.NewClientManagerDomainTmpl(weightedRRBalance.NewWeightedRR()))
 	controller.InitSrbInject(srv)
 
 	return srv
 }
 
-func clientServiceRegister(ctx context.Context) (*client.ServiceImpl, error) {
-	containerTmpl, err := docker.NewContainerTmpl(ctx)
-	if err != nil {
-		return nil, err
-	}
+func clientServiceRegister() (*client.ServiceImpl, error) {
+	containerTmpl := docker.NewRunCode(docker.NewContainerSrvImpl())
 
 	InnerServerDomainImpl, err := entity.NewInnerServerDomainImpl(containerTmpl, client2.NewWebsocketClientImpl())
 	if err != nil {

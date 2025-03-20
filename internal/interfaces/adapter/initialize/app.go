@@ -46,7 +46,6 @@ func RunServer() {
 }
 
 func RunClient() {
-	ctx := context.Background()
 	// 初始化配置
 	c, err := InitConfig()
 	if err != nil {
@@ -57,7 +56,7 @@ func RunClient() {
 	// 初始化日志
 	InitLogger()
 
-	srv, err := clientServiceRegister(ctx)
+	srv, err := clientServiceRegister()
 	if err != nil {
 		panic("服务注册失败,原因:" + err.Error())
 	}

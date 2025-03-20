@@ -2,7 +2,7 @@ package entity
 
 import (
 	"codeRunner-siwu/api/proto"
-	"codeRunner-siwu/internal/infrastructure/docker"
+	docker "codeRunner-siwu/internal/infrastructure/containerBasic"
 	"codeRunner-siwu/internal/infrastructure/websocket/client"
 	"log"
 )
