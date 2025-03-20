@@ -9,57 +9,63 @@ import (
 	"sync"
 )
 
-type ClientManager struct {
-	clients []*entity.Client
-	rw      sync.RWMutex
+type ClientManagerDomain interface {
+	AddClient(*entity.Client, int64)
+	RemoveClient(string) error
+	GetClientByBalance() (*entity.Client, error)
+	GetClientById(id string) (*entity.Client, error)
+}
+
+type ClientManagerDomainTmpl struct {
+	clients sync.Map
 	bananceStrategy.LoadBalance
 }
 
-func NewClientManager() *ClientManager {
-	return &ClientManager{
-		clients:     make([]*entity.Client, 0),
-		rw:          sync.RWMutex{},
-		LoadBalance: weightedRRBalance.NewWeightedRR(),
+func NewClientManagerDomainTmpl(strategy bananceStrategy.LoadBalance) *ClientManagerDomainTmpl {
+	return &ClientManagerDomainTmpl{
+		clients:     sync.Map{},
+		LoadBalance: strategy,
 	}
 }
 
-func (s *ClientManager) Add(client *entity.Client, weight int64) {
-	s.rw.Lock()
-	defer s.rw.Unlock()
-	s.clients = append(s.clients, client)
+func (s *ClientManagerDomainTmpl) AddClient(client *entity.Client, weight int64) {
+	s.clients.Store(client.GetId(), client)
 	s.LoadBalance.Add(weightedRRBalance.NewWeightNode(client.GetId(), weight))
 }
 
-func (s *ClientManager) Remove(id string) error {
-	s.rw.Lock()
-	defer s.rw.Unlock()
-	for i, server := range s.clients {
-		if id == server.GetId() {
-			s.clients = append(s.clients[:i], s.clients[i+1:]...)
-			if err := server.Close(); err != nil {
-				log.Println("domain.server.service.clientManager Remove() Close err=", err)
-				return err
-			}
-			break
-		}
+func (s *ClientManagerDomainTmpl) RemoveClient(id string) error {
+	client, err := s.GetClientById(id)
+	if err != nil {
+		return err
 	}
+
+	if err := client.Close(); err != nil {
+		return err
+	}
+
+	s.clients.Delete(id)
 	s.LoadBalance.Remove(id)
 	return nil
 }
 
-// GetServerByBalance 通过负载均衡获取客户端
-func (s *ClientManager) GetServerByBalance() (*entity.Client, error) {
+func (s *ClientManagerDomainTmpl) GetClientById(id string) (*entity.Client, error) {
+	client, ok := s.clients.Load(id)
+	if !ok {
+		return nil, errors.NotFoundEffectiveServer
+	}
+	return client.(*entity.Client), nil
+}
+
+func (s *ClientManagerDomainTmpl) GetClientByBalance() (*entity.Client, error) {
 	node, err := s.LoadBalance.Get()
 	if err != nil {
-		log.Println("domain.server.service.GetServerByBalance() Get err=", err)
+		log.Println("domain.server.service.GetClientByBalance() Get err=", err)
 		return nil, err
 	}
 
-	for _, server := range s.clients {
-		if server.GetId() == node.GetId() {
-			return server, nil
-		}
+	client, ok := s.clients.Load(node.GetId())
+	if !ok {
+		return nil, errors.NotFoundEffectiveServer
 	}
-	log.Println("domain.server.service.GetServerByBalance() Get err=", errors.NotFoundEffectiveServer)
-	return nil, errors.NotFoundEffectiveServer
+	return client.(*entity.Client), nil
 }

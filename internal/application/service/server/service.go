@@ -4,64 +4,49 @@ import (
 	"codeRunner-siwu/api/proto"
 	"codeRunner-siwu/internal/domain/server/entity"
 	"codeRunner-siwu/internal/domain/server/service"
-	"encoding/json"
-	"github.com/gorilla/websocket"
+	"codeRunner-siwu/internal/infrastructure/websocket/server"
 	"log"
 )
 
 type Service interface {
-	Add(*websocket.Conn, int64) string
-	Remove(string) error
 	Execute(in *proto.ExecuteRequest) error
+	Run(cli server.WebsocketClient, weight int64) error
 }
 
-type ServiceTmpl struct {
+type ServiceImpl struct {
 	service.ClientManagerDomain
 }
 
-func NewServiceTmpl() *ServiceTmpl {
-	return &ServiceTmpl{
-		ClientManagerDomain: service.NewClientManager(),
+func NewServiceImpl(clientManagerDomain service.ClientManagerDomain) *ServiceImpl {
+	return &ServiceImpl{
+		ClientManagerDomain: clientManagerDomain,
 	}
 }
 
-func (w *ServiceTmpl) Add(conn *websocket.Conn, weight int64) string {
-	client := entity.NewClient(conn)
-	w.ClientManagerDomain.Add(client, weight)
-	return client.GetId()
-}
-
-func (w *ServiceTmpl) Remove(id string) error {
-	return w.ClientManagerDomain.Remove(id)
-}
-
-func (w *ServiceTmpl) Send(conn *websocket.Conn, in *proto.ExecuteRequest) error {
-	msg, err := json.Marshal(*in)
-	if err != nil {
-		log.Println("application.service.Send() Marshal err=", err)
-		return err
-	}
-
-	err = conn.WriteMessage(websocket.TextMessage, msg)
-	if err != nil {
-		log.Println("application.service.Send() WriteMessage err=", err)
-		return err
-	}
-	return nil
-}
-
-func (w *ServiceTmpl) Execute(in *proto.ExecuteRequest) error {
-	// 通过负载均衡获取服务器conn
-	server, err := w.ClientManagerDomain.GetServerByBalance()
+func (w *ServiceImpl) Execute(in *proto.ExecuteRequest) error {
+	// 通过负载均衡获取客户端
+	client, err := w.ClientManagerDomain.GetClientByBalance()
 	if err != nil {
 		log.Println("application.service.Send() Execute err=", err)
 		return err
 	}
 
 	// 将请求数据发送给内网服务器
-	err = w.Send(server.GetConn(), in)
+	err = client.Send(in)
 	if err != nil {
 		log.Println("application.service.Send() Send err=", err)
+		return err
+	}
+	return nil
+}
+
+func (w *ServiceImpl) Run(cli server.WebsocketClient, weight int64) error {
+	// 将http请求的内网服务器客户端加入到服务端的 clientManager
+	client := entity.NewClient(cli)
+	w.ClientManagerDomain.AddClient(client, weight)
+
+	// 启动心跳检测
+	if err := client.HeartBeat(); err != nil {
 		return err
 	}
 	return nil

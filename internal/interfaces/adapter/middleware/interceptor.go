@@ -1,7 +1,7 @@
-package rpc
+package middleware
 
 import (
-	token2 "codeRunner-siwu/internal/infrastructure/token"
+	token2 "codeRunner-siwu/internal/infrastructure/common/token"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

@@ -6,10 +6,10 @@ import (
 )
 
 func InitConfig() (*config.Config, error) {
-	c, err := config.LoadConfig()
-	if err != nil {
+	appConfig := new(config.Config)
+	if err := config.LoadConfig(appConfig); err != nil {
 		log.Println("interfaces-adapter-initialize-config InitConfig() 的config.LoadConfig() err=", err)
 		return nil, err
 	}
-	return c, nil
+	return appConfig, nil
 }

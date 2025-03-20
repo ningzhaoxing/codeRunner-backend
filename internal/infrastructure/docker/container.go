@@ -1,4 +1,4 @@
-package entity
+package docker
 
 import (
 	"codeRunner-siwu/api/proto"
@@ -14,30 +14,30 @@ import (
 	"time"
 )
 
-type DockerContainer interface {
+type Container interface {
 	RunCode(request *proto.ExecuteRequest) (response proto.ExecuteResponse, err error)
 }
 
-type dockerContainerClient struct {
+type ContainerTmpl struct {
 	ctx context.Context
 	cli *client.Client
 }
 
-// NewDockerClient 新构造函数：通过完整host地址连接
-func NewDockerClient(ctx context.Context) (*dockerContainerClient, error) {
+// NewContainerTmpl 新构造函数：通过完整host地址连接
+func NewContainerTmpl(ctx context.Context) (*ContainerTmpl, error) {
 	cli, err := client.NewClientWithOpts(
 		client.WithHost("unix:///var/run/docker.sock"),
 		client.WithAPIVersionNegotiation(), // 自动协商API版本
 	)
 	if err != nil {
-		log.Println("domain.client.entity.NewDockerClient() NewClientWithOpts err=", err)
+		log.Println("domain.client.entity.NewContainerTmpl() NewClientWithOpts err=", err)
 		return nil, fmt.Errorf("创建Docker客户端失败: %v", err)
 	}
-	return &dockerContainerClient{ctx: ctx, cli: cli}, nil
+	return &ContainerTmpl{ctx: ctx, cli: cli}, nil
 }
 
 // CreateContainer 创建指定容器
-func (client *dockerContainerClient) createContainer(image string, dirName string) (container.CreateResponse, error) {
+func (client *ContainerTmpl) createContainer(image string, dirName string) (container.CreateResponse, error) {
 	config := &container.Config{
 		Image:      image,
 		User:       "root",
@@ -83,7 +83,7 @@ func (client *dockerContainerClient) createContainer(image string, dirName strin
 }
 
 // StopContainer 停止指定id容器
-func (client *dockerContainerClient) stopContainer(id string) error {
+func (client *ContainerTmpl) stopContainer(id string) error {
 	// 1. 停止容器
 	if err := client.cli.ContainerStop(client.ctx, id, container.StopOptions{}); err != nil {
 		log.Printf("停止容器失败: %v", err)
@@ -112,7 +112,7 @@ func (client *dockerContainerClient) stopContainer(id string) error {
 }
 
 // 获取镜像名
-func (client *dockerContainerClient) getImageName(lang string) string {
+func (client *ContainerTmpl) getImageName(lang string) string {
 	lang = strings.ToLower(lang)
 	extensionMap := map[string]string{
 		"go":     "code-runner-go",
@@ -128,7 +128,7 @@ func (client *dockerContainerClient) getImageName(lang string) string {
 }
 
 // 获取文件扩展名
-func (client *dockerContainerClient) getFileExtension(lang string) (string, error) {
+func (client *ContainerTmpl) getFileExtension(lang string) (string, error) {
 	lang = strings.ToLower(lang)
 	extensionMap := map[string]string{
 		"go":     "go",
@@ -163,7 +163,7 @@ func processDockerLogs(logContent []byte) string {
 }
 
 // 创建文件目录
-func (client *dockerContainerClient) createVolmn(uniqueID string) (tempDir string, err error) {
+func (client *ContainerTmpl) createVolmn(uniqueID string) (tempDir string, err error) {
 	tempDir = fmt.Sprintf("/app/tmp/%s", uniqueID)
 	if err := os.MkdirAll(tempDir, 0755); err != nil {
 		return "", err
@@ -172,7 +172,7 @@ func (client *dockerContainerClient) createVolmn(uniqueID string) (tempDir strin
 }
 
 // 创建文件
-func (client *dockerContainerClient) createFile(code string, tempDir string, ext string) (file *os.File, err error) {
+func (client *ContainerTmpl) createFile(code string, tempDir string, ext string) (file *os.File, err error) {
 	codePath := fmt.Sprintf("%s/main.%s", tempDir, ext)
 	file, err = os.Create(codePath)
 	if err != nil {
@@ -190,7 +190,7 @@ func (client *dockerContainerClient) createFile(code string, tempDir string, ext
 	}
 	return file, nil
 }
-func (client *dockerContainerClient) RunCode(request *proto.ExecuteRequest) (response proto.ExecuteResponse, err error) {
+func (client *ContainerTmpl) RunCode(request *proto.ExecuteRequest) (response proto.ExecuteResponse, err error) {
 	response.Id = request.Id
 	response.Uid = request.Uid
 	response.CallBackUrl = request.CallBackUrl

@@ -19,6 +19,6 @@ FROM alpine:3.17
 
 WORKDIR /app
 COPY --from=builder --chown=runner /app/code-runner .
-COPY --chown=runner configs/configOS.yaml ./configs/
+COPY --chown=runner configs/config.yaml ./configs/
 
 ENTRYPOINT ["/app/code-runner"]

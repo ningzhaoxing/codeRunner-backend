@@ -2,37 +2,27 @@ package client
 
 import (
 	"codeRunner-siwu/api/proto"
-	"codeRunner-siwu/internal/domain/client/entity"
 	"codeRunner-siwu/internal/domain/client/service"
 	"codeRunner-siwu/internal/infrastructure/config"
 	"codeRunner-siwu/internal/infrastructure/websocket/client"
-	"context"
 	"fmt"
 	"log"
 )
 
-// Service 主要任务是执行代码，并将结果post到调用者
 type Service interface {
-	Run(int64) error
+	Run(config.Config) error
 }
 
-// ServiceImpl websocket 客户端 -- 内网服务器
 type ServiceImpl struct {
-	config *config.Config
 	service.InnerServerDomain
 }
 
-func NewServiceImpl(config *config.Config, ctx context.Context) (*ServiceImpl, error) {
-	client, err := entity.NewInnerServer(ctx)
-	if err != nil {
-		log.Println("application.service.NewServiceImpl() NewInnerServer err=", err)
-		return nil, err
-	}
-	return &ServiceImpl{config: config, InnerServerDomain: client}, nil
+func NewServiceImpl(innerServerDomainTmpl service.InnerServerDomain) *ServiceImpl {
+	return &ServiceImpl{InnerServerDomain: innerServerDomainTmpl}
 }
 
-func (w *ServiceImpl) Run(weight int64) error {
-	if err := w.dail(weight); err != nil {
+func (w *ServiceImpl) Run(c config.Config) error {
+	if err := w.dail(c); err != nil {
 		log.Println("application.service.Run() dail err=", err)
 		return err
 	}
@@ -44,15 +34,14 @@ func (w *ServiceImpl) Run(weight int64) error {
 			log.Println("application.service.Run() Read err=", err)
 			continue
 		}
-		fmt.Println(msg)
-
+		fmt.Println("读取到消息:", msg)
 		// 执行代码
 		res, err := w.RunCode(msg)
 		if err != nil {
 			log.Println("application.service.Run() Service err=", err)
 			continue
 		}
-
+		fmt.Println("处理结果为:", res)
 		// 发送结果
 		if err = w.send(res); err != nil {
 			log.Println("application.service.Run() send err=", err)
@@ -62,8 +51,8 @@ func (w *ServiceImpl) Run(weight int64) error {
 }
 
 // 向服务端建立连接
-func (w *ServiceImpl) dail(weight int64) error {
-	targetServer := client.NewTargetServer("8.154.36.180", "7979", "ws", fmt.Sprintf("weight=%d", weight))
+func (w *ServiceImpl) dail(c config.Config) error {
+	targetServer := client.NewTargetServer(c.Client.Server.Host, c.Client.Server.Port, c.Client.Server.Path, fmt.Sprintf("weight=%d", c.Client.App.Weight))
 
 	err := w.InnerServerDomain.Dail(*targetServer)
 	if err != nil {

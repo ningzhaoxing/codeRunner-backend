@@ -1,20 +1,14 @@
 package initialize
 
 import (
-	"codeRunner-siwu/internal/application/service/server"
-	"codeRunner-siwu/internal/interfaces/controller/ws"
 	"context"
 	"fmt"
-	clientv3 "go.etcd.io/etcd/client/v3"
+	etcd "go.etcd.io/etcd/client/v3"
 	"log"
 )
 
 func RunServer() {
 	ctx := context.Background()
-
-	// 创建websocket服务端实例(管理websocket客户端)，依赖注入
-	websocketServer := server.NewServiceTmpl()
-
 	// 初始化配置
 	c, err := InitConfig()
 	if err != nil {
@@ -25,12 +19,20 @@ func RunServer() {
 	// 初始化日志
 	InitLogger()
 
-	// 启动websocket服务
-	go InitEngine(websocketServer, c)
+	// 服务注册
+	srv := serverServiceRegister()
+
+	go func() {
+		url := fmt.Sprintf("%s:%s", c.Server.App.Host, c.Server.App.Port)
+		fmt.Println(url)
+		if err := routeEngine().Run(url); err != nil {
+			panic("http服务启动失败" + err.Error())
+		}
+	}()
 
 	// 启动grpc
-	lis, s, client := InitGrpc(websocketServer, c, ctx)
-	defer func(Client *clientv3.Client) {
+	lis, s, client := InitGrpc(srv, c, ctx)
+	defer func(Client *etcd.Client) {
 		err := Client.Close()
 		if err != nil {
 			log.Println("服务关闭失败" + err.Error())
@@ -55,15 +57,12 @@ func RunClient() {
 	// 初始化日志
 	InitLogger()
 
-	// 自定义权重
-	var weight int64 = 1
-
-	client, err := ws.NewInnerServerClient(c, ctx, weight)
+	srv, err := clientServiceRegister(ctx)
 	if err != nil {
-		panic(fmt.Sprintf("服务启动失败err=%s\n", err))
+		panic("服务注册失败,原因:" + err.Error())
 	}
 
-	if err := client.Run(); err != nil {
+	if err := srv.Run(*c); err != nil {
 		log.Println(fmt.Sprintf("服务启动失败err=%s\n", err))
 	}
 }

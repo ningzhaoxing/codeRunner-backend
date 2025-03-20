@@ -5,39 +5,49 @@ import (
 	"log"
 )
 
-var configPath = "./configs/configOS.yaml"
+var configPath = "./configs/config.yaml"
 
 type Config struct {
-	Grpc Grpc `yaml:"grpc"`
-	Etcd Etcd `yaml:"etcd"`
-	App  App  `yaml:"app"`
+	Server ServerConfig `yaml:"server"`
+	Client ClientConfig `yaml:"client"`
 }
 
-type Grpc struct {
-	Host string `yaml:"host"`
-	Port string `yaml:"port"`
+type ServerConfig struct {
+	Grpc struct {
+		Host string `yaml:"host"`
+		Port string `yaml:"port"`
+	} `yaml:"grpc"`
+	Etcd struct {
+		Endpoints string `yaml:"endpoints"`
+		Key       string `yaml:"key"`
+	} `yaml:"etcd"`
+	App struct {
+		Host string `yaml:"host"`
+		Port string `yaml:"port"`
+	} `yaml:"app"`
 }
 
-type Etcd struct {
-	Endpoints string `yaml:"endpoints"`
-	Key       string `yaml:"key"`
+type ClientConfig struct {
+	Server struct {
+		Host string `yaml:"host"`
+		Port string `yaml:"port"`
+		Path string `yaml:"path"`
+	} `yaml:"server"`
+	App struct {
+		Weight int64 `yaml:"weight"`
+	} `yaml:"app"`
 }
 
-type App struct {
-	Host string `yaml:"host"`
-	Port string `yaml:"port"`
-}
-
-func LoadConfig() (*Config, error) {
+func LoadConfig(config *Config) error {
 	viper.SetConfigFile(configPath)
 	if err := viper.ReadInConfig(); err != nil {
 		log.Printf("infrastructure-config LoadConfig()的 viper.ReadInConfig err  %v", err)
-		return nil, err
+		return err
 	}
-	var cfg Config
-	if err := viper.Unmarshal(&cfg); err != nil {
+
+	if err := viper.Unmarshal(config); err != nil {
 		log.Printf("infrastructure-config LoadConfig()的 viper.Unmarshal err  %v", err)
-		return nil, err
+		return err
 	}
-	return &cfg, nil
+	return nil
 }

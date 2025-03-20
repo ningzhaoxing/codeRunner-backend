@@ -2,18 +2,16 @@ package initialize
 
 import (
 	"codeRunner-siwu/internal/infrastructure/config"
-	"codeRunner-siwu/internal/infrastructure/serviceRegistry"
+	"codeRunner-siwu/internal/infrastructure/etcd"
 	"context"
 	"fmt"
 	"log"
 )
 
-func EtcdRegister(ctx context.Context, c *config.Config) (*serviceRegistry.EtcdRegistry, error) {
-	// 注册grpc
-
+func EtcdRegister(ctx context.Context, c *config.Config) (*etcd.EtcdRegistry, error) {
 	// 鏈接etcd
-	endPoints := []string{fmt.Sprintf("http://%s", c.Etcd.Endpoints)}
-	etcdClient, err := serviceRegistry.NewEtcdRegistry(endPoints, c.Etcd.Key, fmt.Sprintf("%s:%s", "0.0.0.0", c.Grpc.Port))
+	endPoints := []string{fmt.Sprintf("http://%s", c.Server.Etcd.Endpoints)}
+	etcdClient, err := etcd.NewEtcdRegistry(endPoints, c.Server.Etcd.Key, fmt.Sprintf("%s:%s", "0.0.0.0", c.Server.Grpc.Port))
 	if err != nil {
 		log.Println("interfaces-adapter-initialize-etcd EtcdRegister的serviceRegistry.NewEtcdRegistry err=", err)
 		return nil, err

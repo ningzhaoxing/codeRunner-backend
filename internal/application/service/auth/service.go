@@ -2,7 +2,7 @@ package auth
 
 import (
 	"codeRunner-siwu/api/proto"
-	"codeRunner-siwu/internal/infrastructure/token"
+	"codeRunner-siwu/internal/infrastructure/common/token"
 	"log"
 )
 
