@@ -100,7 +100,7 @@ func (r *runCode) createFile(language, code string, path string) error {
 }
 
 // 获得执行命令
-func (r *runCode) getCommand(language, containerName, path string) (string, []string) {
+func (r *runCode) getCommand(language, path string) (string, []string) {
 	switch language {
 	case "go":
 		return "go", []string{"run", path}
@@ -169,7 +169,7 @@ func (r *runCode) RunCode(request *proto.ExecuteRequest) (response proto.Execute
 	}()
 
 	//开始执行代码
-	containerPath := fmt.Sprintf("/app/tmp/%s/%s.%s", request.Language, uniqueID, r.extension)
+	containerPath := fmt.Sprintf("/app/%s.%s", uniqueID, r.extension)
 	log.Printf("执行代码，容器路径: %s", containerPath)
 	containName := r.GetContains(request.Language)
 
@@ -178,7 +178,7 @@ func (r *runCode) RunCode(request *proto.ExecuteRequest) (response proto.Execute
 	defer cancel()
 
 	// 获取执行命令
-	cmd, args := r.getCommand(request.Language, containName, containerPath)
+	cmd, args := r.getCommand(request.Language, containerPath)
 	if cmd == "" {
 		return response, fmt.Errorf("不支持的语言类型: %s", request.Language)
 	}

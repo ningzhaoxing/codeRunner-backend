@@ -129,7 +129,7 @@ func (c *containerSrvImpl) createContainer(language, image, name string) *contai
 	}
 
 	// 准备挂载卷
-	mounts := []string{fmt.Sprintf("%s:/app/tmp/%s", tmpDir, language)}
+	mounts := []string{fmt.Sprintf("tmp/%s:/app", language)}
 
 	// 创建容器配置
 	config := &container.Config{
