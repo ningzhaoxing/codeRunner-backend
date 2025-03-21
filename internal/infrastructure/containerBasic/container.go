@@ -121,15 +121,15 @@ func (c *containerSrvImpl) createContainer(language, image, name string) *contai
 	}
 
 	// 创建目录
-	tmpDir := fmt.Sprintf("/app/tmp/%s", language)
-	if err := os.MkdirAll(tmpDir, 0755); err != nil {
-		log.Printf("创建目录 %s 失败: %v", tmpDir, err)
-		c.err = err
-		return c
-	}
+	//tmpDir := fmt.Sprintf("/app/tmp/%s", language)
+	//if err := os.MkdirAll(tmpDir, 0755); err != nil {
+	//	log.Printf("创建目录 %s 失败: %v", tmpDir, err)
+	//	c.err = err
+	//	return c
+	//}
 
 	// 准备挂载卷
-	mounts := []string{fmt.Sprintf("tmp/%s:/app", language)}
+	mounts := []string{fmt.Sprintf("/tmp/%s:/app", language)}
 
 	// 创建容器配置
 	config := &container.Config{

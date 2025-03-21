@@ -67,7 +67,8 @@ func (r *runCode) getFileExtension(lang string) *runCode {
 
 // 创建空文件
 func (r *runCode) createBlockFile(path string) *runCode {
-	r.file, r.err = os.Create(path)
+	codePath := fmt.Sprintf("%s.%s", path, r.extension)
+	r.file, r.err = os.Create(codePath)
 	return r
 }
 
@@ -90,8 +91,7 @@ func (r *runCode) sync() *runCode {
 // 创建文件
 func (r *runCode) createFile(language, code string, path string) error {
 
-	codePath := fmt.Sprintf("%s.%s", path, r.extension)
-	r.getFileExtension(language).createBlockFile(codePath).writeCode(code).sync()
+	r.getFileExtension(language).createBlockFile(path).writeCode(code).sync()
 	if r.err != nil {
 		log.Println("runCode-createFile 的 err=", r.err)
 		return r.err
