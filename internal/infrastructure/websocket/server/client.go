@@ -9,6 +9,7 @@ type WebsocketClient interface {
 	Send([]byte) error
 	Close() error
 	HeartBeat() error
+	Read() ([]byte, error)
 }
 
 type WebsocketClientImpl struct {
@@ -19,6 +20,11 @@ func NewWebsocketClientImpl(conn *websocket.Conn) *WebsocketClientImpl {
 	return &WebsocketClientImpl{
 		conn: conn,
 	}
+}
+
+func (c *WebsocketClientImpl) Read() ([]byte, error) {
+	_, msg, err := c.conn.ReadMessage()
+	return msg, err
 }
 
 func (c *WebsocketClientImpl) Send(msg []byte) error {

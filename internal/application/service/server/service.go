@@ -49,5 +49,12 @@ func (w *ServiceImpl) Run(cli server.WebsocketClient, weight int64) error {
 	if err := client.HeartBeat(); err != nil {
 		return err
 	}
-	return nil
+
+	// 维持连接
+	for {
+		if _, err := client.Read(); err != nil {
+			log.Println("application.service.server.Run() Read() err=", err)
+			continue
+		}
+	}
 }

@@ -130,12 +130,21 @@ func (i *WebsocketClientImpl) reconnect() error {
 		return err
 	}
 
+	// 开始重连
+	maxAttempts := 3
+	attempts := 0
+
 	for {
 		log.Println("尝试重新连接...")
 		err := i.connect()
 		if err == nil {
 			log.Println("重连成功")
 			return nil
+		}
+		attempts++
+		if attempts >= maxAttempts {
+			log.Printf("重连失败已达%d次，停止重试", maxAttempts)
+			return errors.MaxRetryAttemptsReached
 		}
 		log.Printf("重连失败: %v, %d秒后重试\n", err, i.reconnectWait/time.Second)
 		time.Sleep(i.reconnectWait)
