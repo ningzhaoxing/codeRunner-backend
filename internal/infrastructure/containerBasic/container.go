@@ -26,11 +26,11 @@ func (c *containerSrvImpl) GetContains(language string) (container string) {
 func NewContainerSrvImpl() *containerSrvImpl {
 	language := []string{"go", "c", "java", "python", "js"}
 	images := map[string]string{
-		"go":     "go-runner",
-		"java":   "java-runner",
-		"c":      "cpp-runner",
-		"python": "python-runner",
-		"js":     "js-runner",
+		"go":     "code-runner-go",
+		"java":   "code-runner-java",
+		"c":      "code-runner-cpp",
+		"python": "code-runner-python",
+		"js":     "code-runner-js",
 	}
 
 	containerSrvImpl := containerSrvImpl{
