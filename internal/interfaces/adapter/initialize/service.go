@@ -19,7 +19,10 @@ func serverServiceRegister() {
 }
 
 func clientServiceRegister() (*client.ServiceImpl, error) {
-	containerTmpl := docker.NewRunCode(docker.NewContainerSrvImpl())
+	containerTmpl, err := docker.NewRunCode(docker.NewContainerSrvImpl())
+	if err != nil {
+		return nil, err
+	}
 
 	InnerServerDomainImpl, err := entity.NewInnerServerDomainImpl(containerTmpl, client2.NewWebsocketClientImpl())
 	if err != nil {
@@ -27,8 +30,6 @@ func clientServiceRegister() (*client.ServiceImpl, error) {
 	}
 
 	clientSvr := client.NewServiceImpl(InnerServerDomainImpl)
-
-	//controller.InitClientSrvInject(clientSvr)
 
 	return clientSvr, nil
 }

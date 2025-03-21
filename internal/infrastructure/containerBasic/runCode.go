@@ -3,13 +3,15 @@ package containerBasic
 import (
 	"codeRunner-siwu/api/proto"
 	"context"
-	"errors"
 	"fmt"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
 	"github.com/google/uuid"
+	"io"
 	"log"
 	"os"
-	"os/exec"
 	"strings"
+	"time"
 )
 
 type Container interface {
@@ -18,6 +20,8 @@ type Container interface {
 
 type runCode struct {
 	ContainerSrv
+	cli *client.Client
+	ctx context.Context
 	//错误
 	err error
 	//扩展名
@@ -26,11 +30,21 @@ type runCode struct {
 	file *os.File
 }
 
-func NewRunCode(containSrv ContainerSrv) *runCode {
+func NewRunCode(containSrv ContainerSrv) (*runCode, error) {
+	cli, err := client.NewClientWithOpts(
+		client.WithHost("unix:///var/run/docker.sock"),
+		client.WithAPIVersionNegotiation(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("创建Docker客户端失败: %v", err)
+	}
+
 	return &runCode{
 		ContainerSrv: containSrv,
+		cli:          cli,
+		ctx:          context.Background(),
 		err:          nil,
-	}
+	}, nil
 }
 
 // 获取文件扩展名
@@ -86,20 +100,20 @@ func (r *runCode) createFile(language, code string, path string) error {
 }
 
 // 获得执行命令
-func (r *runCode) getCommand(language, containerName, path string) *exec.Cmd {
+func (r *runCode) getCommand(language, containerName, path string) (string, []string) {
 	switch language {
 	case "go":
-		return exec.Command("docker", "exec", containerName, "timeout", "10", "go", "run", path)
+		return "go", []string{"run", path}
 	case "c":
-		return exec.Command("docker", "exec", containerName, "timeout", "10", "gcc", "-o", path)
+		return "gcc", []string{"-o", path}
 	case "python":
-		return exec.Command("docker", "exec", containerName, "timeout", "10", "python", path)
+		return "python", []string{path}
 	case "java":
-		return exec.Command("docker", "exec", containerName, "timeout", "10", "javac", path)
+		return "javac", []string{path}
 	case "js":
-		return exec.Command("docker", "exec", containerName, "timeout", "10", "node", path)
+		return "node", []string{path}
 	}
-	return nil
+	return "", nil
 }
 
 // 处理Docker日志格式
@@ -125,9 +139,18 @@ func (r *runCode) RunCode(request *proto.ExecuteRequest) (response proto.Execute
 	response.Id = request.Id
 	response.Uid = request.Uid
 	response.CallBackUrl = request.CallBackUrl
+
+	// 确保容器存在
+	containerName := r.GetContains(request.Language)
+	if err := r.ContainerSrv.EnsureContainerExists(request.Language); err != nil {
+		log.Printf("确保容器 %s 存在时出错: %v", containerName, err)
+		return response, fmt.Errorf("容器准备失败: %v", err)
+	}
+
 	//创建文件
 	uniqueID := uuid.New().String()
 	path := fmt.Sprintf("/app/tmp/%s/%s", request.Language, uniqueID)
+
 	//创建文件
 	err = r.createFile(request.Language, request.CodeBlock, path)
 	if err != nil {
@@ -138,28 +161,84 @@ func (r *runCode) RunCode(request *proto.ExecuteRequest) (response proto.Execute
 	defer func() {
 		if r.file != nil {
 			r.file.Close()
-			err := os.Remove(path)
+			err := os.Remove(fmt.Sprintf("%s.%s", path, r.extension))
 			if err != nil {
 				fmt.Printf("删除文件时出错: %v\n", err)
 			}
 		}
 	}()
+
 	//开始执行代码
-	containerPath := fmt.Sprintf("/app/%s.%s", uniqueID, r.extension)
+	containerPath := fmt.Sprintf("/app/tmp/%s/%s.%s", request.Language, uniqueID, r.extension)
+	log.Printf("执行代码，容器路径: %s", containerPath)
 	containName := r.GetContains(request.Language)
-	cmd := r.getCommand(request.Language, containName, containerPath)
-	output, err := cmd.CombinedOutput()
+
+	// 设置超时上下文
+	ctx, cancel := context.WithTimeout(r.ctx, 30*time.Second)
+	defer cancel()
+
+	// 获取执行命令
+	cmd, args := r.getCommand(request.Language, containName, containerPath)
+	if cmd == "" {
+		return response, fmt.Errorf("不支持的语言类型: %s", request.Language)
+	}
+
+	// 执行命令
+	execConfig := types.ExecConfig{
+		AttachStdout: true,
+		AttachStderr: true,
+		Cmd:          append([]string{cmd}, args...),
+		WorkingDir:   "/app",
+		User:         "root",
+	}
+
+	execID, err := r.cli.ContainerExecCreate(ctx, containName, execConfig)
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			response.Result = "time.out"
-			return response, r.err
+		log.Printf("创建执行实例失败: %v", err)
+		return response, err
+	}
+
+	// 启动执行
+	err = r.cli.ContainerExecStart(ctx, execID.ID, types.ExecStartCheck{})
+	if err != nil {
+		log.Printf("启动执行失败: %v", err)
+		return response, err
+	}
+
+	// 等待执行完成
+	execInspect, err := r.cli.ContainerExecInspect(ctx, execID.ID)
+	if err != nil {
+		log.Printf("获取执行状态失败: %v", err)
+		return response, err
+	}
+
+	if execInspect.ExitCode != 0 {
+		// 获取错误输出
+		logs, _ := r.cli.ContainerLogs(ctx, containName, types.ContainerLogsOptions{
+			ShowStdout: true,
+			ShowStderr: true,
+			Details:    true,
+		})
+		if logs != nil {
+			logContent, _ := io.ReadAll(logs)
+			response.Err = processDockerLogs(logContent)
 		}
-		log.Printf("命令执行失败: %v, 输出: %s", err, output)
-		response.Err = err.Error()
-		return response, r.err
+		return response, fmt.Errorf("执行失败，退出码: %d", execInspect.ExitCode)
 	}
-	if len(output) > 0 {
-		response.Result = processDockerLogs(output)
+
+	// 获取输出
+	logs, err := r.cli.ContainerLogs(ctx, containName, types.ContainerLogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Details:    true,
+	})
+	if err != nil {
+		log.Printf("获取输出失败: %v", err)
+		return response, err
 	}
-	return response, r.err
+
+	logContent, _ := io.ReadAll(logs)
+	response.Result = processDockerLogs(logContent)
+
+	return response, nil
 }

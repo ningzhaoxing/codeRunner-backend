@@ -45,8 +45,8 @@ services:
     profiles: ["build-only"]
 
   js-runner:
-     image: code-runner-js:latest
-     build:
-       context: .
-       dockerfile: builds/runners/js.Dockerfile
-     profiles: [ "build-only" ]
+    image: code-runner-js:latest
+    build:
+      context: .
+      dockerfile: builds/runners/js.Dockerfile
+    profiles: [ "build-only" ]
