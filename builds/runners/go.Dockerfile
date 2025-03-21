@@ -15,6 +15,3 @@ ENV GO111MODULE=on \
     GOOS=linux \
     GOARCH=amd64 \
     TZ=Asia/Shanghai
-
-# 容器启动时运行命令
-CMD ["go", "run", "main.go"]

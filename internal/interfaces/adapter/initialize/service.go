@@ -11,11 +11,11 @@ import (
 	"codeRunner-siwu/internal/interfaces/controller"
 )
 
-func serverServiceRegister() *server.ServiceImpl {
+func serverServiceRegister() {
+	// 依赖注入
 	srv := server.NewServiceImpl(service.NewClientManagerDomainTmpl(weightedRRBalance.NewWeightedRR()))
-	controller.InitSrbInject(srv)
 
-	return srv
+	controller.InitSrbInject(srv)
 }
 
 func clientServiceRegister() (*client.ServiceImpl, error) {
@@ -27,5 +27,8 @@ func clientServiceRegister() (*client.ServiceImpl, error) {
 	}
 
 	clientSvr := client.NewServiceImpl(InnerServerDomainImpl)
+
+	//controller.InitClientSrvInject(clientSvr)
+
 	return clientSvr, nil
 }

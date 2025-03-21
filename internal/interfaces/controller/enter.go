@@ -2,15 +2,17 @@ package controller
 
 import (
 	serverAppSrv "codeRunner-siwu/internal/application/service/server"
-	"codeRunner-siwu/internal/interfaces/controller/ws/server"
+	"codeRunner-siwu/internal/interfaces/controller/server"
 )
 
 type apiGroup struct {
-	Server server.EndpointCtl
+	CodeRunnerSrv server.EndpointCtl
 }
 
 var APIs *apiGroup
 
-func InitSrbInject(serverSrv serverAppSrv.Service) {
-	APIs = &apiGroup{Server: server.EndpointCtl{Srv: serverSrv}}
+func InitSrbInject(codeRunnerSrv serverAppSrv.Service) {
+	APIs = &apiGroup{
+		CodeRunnerSrv: server.EndpointCtl{Srv: codeRunnerSrv},
+	}
 }

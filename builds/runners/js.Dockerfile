@@ -12,6 +12,3 @@ RUN chown -R runner:runner /app
 
 # 切换到runner用户
 USER runner
-
-# 容器启动时运行命令，这里假设你的JavaScript文件名为main.js
-CMD ["node", "main.js"]

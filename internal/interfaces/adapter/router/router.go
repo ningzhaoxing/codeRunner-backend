@@ -6,5 +6,5 @@ import (
 )
 
 func ApiRouter(r *gin.Engine) {
-	r.GET("/ws", controller.APIs.Server.HandleServer())
+	r.GET("/ws", controller.APIs.CodeRunnerSrv.HandleServer())
 }

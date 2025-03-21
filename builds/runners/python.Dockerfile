@@ -16,6 +16,3 @@ USER runner
 # 设置环境变量
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
-
-# 设置默认命令，运行 Python 文件
-CMD ["python3", "main.py"]

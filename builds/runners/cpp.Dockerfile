@@ -11,6 +11,3 @@ RUN chown -R runner:runner /app
 
 # 切换到 runner 用户
 USER runner
-
-# 容器启动时运行命令
-CMD ["sh", "-c", "g++ -Wall -Wextra -Werror -O2 -std=c++20 -o main main.cpp && ./main"]

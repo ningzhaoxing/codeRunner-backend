@@ -20,7 +20,7 @@ func RunServer() {
 	InitLogger()
 
 	// 服务注册
-	srv := serverServiceRegister()
+	serverServiceRegister()
 
 	go func() {
 		url := fmt.Sprintf("%s:%s", c.Server.App.Host, c.Server.App.Port)
@@ -31,7 +31,7 @@ func RunServer() {
 	}()
 
 	// 启动grpc
-	lis, s, client := InitGrpc(srv, c, ctx)
+	lis, s, client := InitGrpc(c, ctx)
 	defer func(Client *etcd.Client) {
 		err := Client.Close()
 		if err != nil {

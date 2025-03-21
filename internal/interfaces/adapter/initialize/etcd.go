@@ -11,7 +11,7 @@ import (
 func EtcdRegister(ctx context.Context, c *config.Config) (*etcd.EtcdRegistry, error) {
 	// 鏈接etcd
 	endPoints := []string{fmt.Sprintf("http://%s", c.Server.Etcd.Endpoints)}
-	etcdClient, err := etcd.NewEtcdRegistry(endPoints, c.Server.Etcd.Key, fmt.Sprintf("%s:%s", "0.0.0.0", c.Server.Grpc.Port))
+	etcdClient, err := etcd.NewEtcdRegistry(endPoints, c.Server.Etcd.Key, fmt.Sprintf("%s:%s", c.Server.Grpc.Host, c.Server.Grpc.Port))
 	if err != nil {
 		log.Println("interfaces-adapter-initialize-etcd EtcdRegister的serviceRegistry.NewEtcdRegistry err=", err)
 		return nil, err
