@@ -13,6 +13,6 @@ client:
   server:
     host: "8.154.36.180"
     port: "7979"
-    path: "codeRunner/ws"
+    path: "ws"
   app:
     weight: 1
