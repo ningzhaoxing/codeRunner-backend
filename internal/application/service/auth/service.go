@@ -2,23 +2,28 @@ package auth
 
 import (
 	"codeRunner-siwu/api/proto"
+	"codeRunner-siwu/internal/infrastructure/common/logger"
 	"codeRunner-siwu/internal/infrastructure/common/token"
-	"log"
+	"fmt"
 )
 
-type Service struct {
+type Service interface {
+	GenerateToken(request *proto.GenerateTokenRequest) (response *proto.GenerateTokenResponse, err error)
+}
+
+type ServiceImpl struct {
 	token.TokenIssuer
+	logger.Logger
 }
 
-func NewService() *Service {
-	tokenPublic := token.NewToken()
-	return &Service{tokenPublic}
+func NewService(token token.TokenIssuer, log logger.Logger) *ServiceImpl {
+	return &ServiceImpl{token, log}
 }
 
-func (t *Service) GenerateToken(request *proto.GenerateTokenRequest) (response *proto.GenerateTokenResponse, err error) {
+func (t *ServiceImpl) GenerateToken(request *proto.GenerateTokenRequest) (response *proto.GenerateTokenResponse, err error) {
 	response, err = t.TokenIssuer.Public(request)
 	if err != nil {
-		log.Println("application.service.GenerateToken() Public err=", err)
+		t.Logger.Error(fmt.Sprintln("application.service.GenerateToken() Public err=\n", err))
 		return response, err
 	}
 	return response, nil
