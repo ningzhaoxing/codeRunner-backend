@@ -3,10 +3,10 @@ package client
 import (
 	"codeRunner-siwu/api/proto"
 	"codeRunner-siwu/internal/domain/client/service"
+	"codeRunner-siwu/internal/infrastructure/common/logger"
 	"codeRunner-siwu/internal/infrastructure/config"
 	"codeRunner-siwu/internal/infrastructure/websocket/client"
 	"fmt"
-	"log"
 )
 
 type Service interface {
@@ -15,15 +15,17 @@ type Service interface {
 
 type ServiceImpl struct {
 	service.InnerServerDomain
+	logger.Logger
 }
 
-func NewServiceImpl(innerServerDomainTmpl service.InnerServerDomain) *ServiceImpl {
-	return &ServiceImpl{InnerServerDomain: innerServerDomainTmpl}
+func NewServiceImpl(innerServerDomainTmpl service.InnerServerDomain, logger logger.Logger) *ServiceImpl {
+	return &ServiceImpl{InnerServerDomain: innerServerDomainTmpl,
+		Logger: logger}
 }
 
 func (w *ServiceImpl) Run(c config.Config) error {
 	if err := w.dail(c); err != nil {
-		log.Println("application.service.Run() dail err=", err)
+		w.Logger.Error(fmt.Sprintln("application.client.Run() dail err=", err))
 		return err
 	}
 
@@ -31,20 +33,20 @@ func (w *ServiceImpl) Run(c config.Config) error {
 		// 读取消息
 		msg, err := w.InnerServerDomain.Read()
 		if err != nil {
-			log.Println("application.service.Run() Read err=", err)
+			w.Logger.Error(fmt.Sprintln("application.client.Run() Read err=", err))
 			continue
 		}
 		fmt.Println("读取到消息:", msg)
 		// 执行代码
 		res, err := w.RunCode(msg)
 		if err != nil {
-			log.Println("application.service.Run() Service err=", err)
+			w.Logger.Error(fmt.Sprintln("application.client.Run() Service err=", err))
 			continue
 		}
 		fmt.Println("处理结果为:", res)
 		// 发送结果
 		if err = w.send(res); err != nil {
-			log.Println("application.service.Run() send err=", err)
+			w.Logger.Error(fmt.Sprintln("application.client.Run() send err=", err))
 			continue
 		}
 	}
@@ -56,7 +58,7 @@ func (w *ServiceImpl) dail(c config.Config) error {
 
 	err := w.InnerServerDomain.Dail(*targetServer)
 	if err != nil {
-		log.Println("application.service.dail() Dail err=", err)
+		w.Logger.Error(fmt.Sprintln("application.client.dail() Dail err=\n", err))
 		return err
 	}
 	return nil
@@ -64,7 +66,7 @@ func (w *ServiceImpl) dail(c config.Config) error {
 
 func (w *ServiceImpl) send(res *proto.ExecuteResponse) error {
 	if err := w.InnerServerDomain.Send(res); err != nil {
-		log.Println("application.service.send() Send err=", err)
+		w.Logger.Error(fmt.Sprintln("application.client.send() Send err=\n", err))
 		return err
 	}
 	return nil

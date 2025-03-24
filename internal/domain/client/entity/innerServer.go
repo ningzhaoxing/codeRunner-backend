@@ -12,8 +12,8 @@ type InnerServerDomainImpl struct {
 	client.WebsocketClient
 }
 
-func NewInnerServerDomainImpl(container docker.Container, websocketClient client.WebsocketClient) (*InnerServerDomainImpl, error) {
-	return &InnerServerDomainImpl{WebsocketClient: websocketClient, Container: container}, nil
+func NewInnerServerDomainImpl(container docker.Container, websocketClient client.WebsocketClient) *InnerServerDomainImpl {
+	return &InnerServerDomainImpl{WebsocketClient: websocketClient, Container: container}
 }
 
 func (i *InnerServerDomainImpl) Dail(targetServer client.TargetServer) error {

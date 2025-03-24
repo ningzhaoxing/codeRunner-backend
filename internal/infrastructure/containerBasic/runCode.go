@@ -30,21 +30,18 @@ type runCode struct {
 	file *os.File
 }
 
-func NewRunCode(containSrv ContainerSrv) (*runCode, error) {
-	cli, err := client.NewClientWithOpts(
+func NewRunCode(containSrv ContainerSrv) *runCode {
+	cli, _ := client.NewClientWithOpts(
 		client.WithHost("unix:///var/run/docker.sock"),
 		client.WithAPIVersionNegotiation(),
 	)
-	if err != nil {
-		return nil, fmt.Errorf("创建Docker客户端失败: %v", err)
-	}
 
 	return &runCode{
 		ContainerSrv: containSrv,
 		cli:          cli,
 		ctx:          context.Background(),
 		err:          nil,
-	}, nil
+	}
 }
 
 // 获取文件扩展名

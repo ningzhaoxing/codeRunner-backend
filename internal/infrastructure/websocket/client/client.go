@@ -35,7 +35,7 @@ func NewWebsocketClientImpl() *WebsocketClientImpl {
 		pingPeriod:       10 * time.Second,
 		pongWait:         60 * time.Second,
 		stopPingCh:       make(chan struct{}),
-		reconnectWait:    5 * time.Second,
+		reconnectWait:    10 * time.Second,
 	}
 }
 
@@ -46,8 +46,6 @@ func (i *WebsocketClientImpl) Dail(targetServer TargetServer) error {
 	if err := i.connect(); err != nil {
 		return err
 	}
-	// 启动心跳
-	go i.heartBeat()
 	return nil
 }
 
@@ -119,20 +117,21 @@ func (i *WebsocketClientImpl) connect() error {
 	}
 
 	i.conn = conn
+
+	// 启动心跳
+	go i.heartBeat()
 	return nil
 }
 
 // 重连方法
 func (i *WebsocketClientImpl) reconnect() error {
-	err := i.conn.Close()
-	if err != nil {
-		log.Println("鏈接關閉失敗")
+	// 关闭客户端
+	if err := i.Close(); err != nil {
 		return err
 	}
 
 	// 开始重连
 	maxAttempts := 3
-	attempts := 0
 
 	for {
 		log.Println("尝试重新连接...")
@@ -141,8 +140,8 @@ func (i *WebsocketClientImpl) reconnect() error {
 			log.Println("重连成功")
 			return nil
 		}
-		attempts++
-		if attempts >= maxAttempts {
+		maxAttempts--
+		if maxAttempts <= 0 {
 			log.Printf("重连失败已达%d次，停止重试", maxAttempts)
 			return errors.MaxRetryAttemptsReached
 		}

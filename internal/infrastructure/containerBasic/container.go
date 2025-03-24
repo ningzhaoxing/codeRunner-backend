@@ -70,7 +70,7 @@ func NewContainerSrvImpl() *containerSrvImpl {
 		client.WithAPIVersionNegotiation(),
 	)
 	if err != nil {
-		log.Fatalf("创建Docker客户端失败: %v", err)
+		panic("docker客户端创建失败" + err.Error())
 		return nil
 	}
 

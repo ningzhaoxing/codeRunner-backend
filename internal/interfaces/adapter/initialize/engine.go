@@ -9,8 +9,7 @@ func routeEngine() *gin.Engine {
 	r := gin.New()
 
 	r.Use(gin.Recovery(), gin.Logger())
-
+	
 	router.ApiRouter(r)
-
 	return r
 }

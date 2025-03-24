@@ -5,7 +5,6 @@ import (
 	"codeRunner-siwu/internal/infrastructure/config"
 	"codeRunner-siwu/internal/interfaces/adapter/middleware"
 	"codeRunner-siwu/internal/interfaces/controller"
-	"codeRunner-siwu/internal/interfaces/controller/auth"
 	"context"
 	"fmt"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -38,7 +37,7 @@ func register() *grpc.Server {
 	s := grpc.NewServer(u)
 
 	// token签发服务注册
-	token := auth.TokenServer{}
+	token := controller.APIs.Auth
 	proto.RegisterTokenIssuerServer(s, &token)
 
 	// 代码运行服务注册
