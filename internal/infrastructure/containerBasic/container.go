@@ -1,70 +1,40 @@
 package containerBasic
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 	"log"
 	"os"
-	"strings"
 	"time"
 )
 
-type ContainerSrv interface {
+type DockerContainer interface {
+	InContainerRunCode(language string, cmd string, args []string) (string, error)
 	GetContains(language string) (container string)
-	EnsureContainerExists(language string) error
 }
 
-type containerSrvImpl struct {
+type dockerContainerClient struct {
+	ctx context.Context
+	cli *client.Client
 	err error
 	//记录支持的语言类型
 	language []string
 	//支持的镜像
 	images map[string]string
-	cli    *client.Client
-	ctx    context.Context
 }
 
-func (c *containerSrvImpl) GetContains(language string) (container string) {
+// GetContains 得到容器名
+func (c *dockerContainerClient) GetContains(language string) (container string) {
 	return c.images[language]
 }
 
-func (c *containerSrvImpl) EnsureContainerExists(language string) error {
-	containerName := c.images[language]
-
-	// 检查容器是否存在
-	args := filters.NewArgs()
-	args.Add("name", containerName)
-
-	containers, err := c.cli.ContainerList(c.ctx, types.ContainerListOptions{
-		All:     true,
-		Filters: args,
-	})
-	if err != nil {
-		return fmt.Errorf("检查容器失败: %v", err)
-	}
-
-	if len(containers) == 0 {
-		log.Printf("容器 %s 不存在，正在创建...", containerName)
-		return c.createContainer(language, c.images[language], containerName).err
-	}
-
-	// 检查容器是否运行中
-	if containers[0].State != "running" {
-		log.Printf("容器 %s 未运行，正在启动...", containerName)
-		if err := c.cli.ContainerStart(c.ctx, containers[0].ID, types.ContainerStartOptions{}); err != nil {
-			return fmt.Errorf("启动容器失败: %v", err)
-		}
-		log.Printf("容器 %s 已启动", containerName)
-	}
-
-	return nil
-}
-
-func NewContainerSrvImpl() *containerSrvImpl {
+// NewDockerClient 新构造函数：通过完整host地址连接
+func NewDockerClient() *dockerContainerClient {
 	cli, err := client.NewClientWithOpts(
 		client.WithHost("unix:///var/run/docker.sock"),
 		client.WithAPIVersionNegotiation(),
@@ -74,16 +44,15 @@ func NewContainerSrvImpl() *containerSrvImpl {
 		return nil
 	}
 
-	language := []string{"go", "c", "java", "python", "js"}
+	language := []string{"golang", "c", "java", "python", "javascript"}
 	images := map[string]string{
-		"go":     "code-runner-go",
-		"java":   "code-runner-java",
-		"c":      "code-runner-cpp",
-		"python": "code-runner-python",
-		"js":     "code-runner-js",
+		"golang":     "code-runner-go",
+		"java":       "code-runner-java",
+		"c":          "code-runner-cpp",
+		"python":     "code-runner-python",
+		"javascript": "code-runner-js",
 	}
-
-	containerSrvImpl := containerSrvImpl{
+	dockerContainerClient := dockerContainerClient{
 		err:      nil,
 		language: language,
 		images:   images,
@@ -92,129 +61,190 @@ func NewContainerSrvImpl() *containerSrvImpl {
 	}
 
 	// 创建目录
-	containerSrvImpl.createContent()
+	dockerContainerClient.createContent()
 
 	// 确保每个语言的容器都存在
 	for _, lang := range language {
-		err := containerSrvImpl.EnsureContainerExists(lang)
-		if err != nil {
+		dockerContainerClient = *dockerContainerClient.ensureContainerExists(lang)
+		if dockerContainerClient.err != nil {
 			log.Printf("确保 %s 容器存在时出错: %v", lang, err)
-			containerSrvImpl.err = err
+			return &dockerContainerClient
 		}
 	}
 
-	return &containerSrvImpl
+	return &dockerContainerClient
 }
 
-// 创建单个容器
-func (c *containerSrvImpl) createContainer(language, image, name string) *containerSrvImpl {
-	if c.err != nil {
-		return c
-	}
+// 确保每个容器都存在
+func (client *dockerContainerClient) ensureContainerExists(language string) *dockerContainerClient {
+	containerName := client.images[language]
+	// 检查容器是否存在
+	args := filters.NewArgs()
+	args.Add("name", containerName)
 
-	// 检查镜像是否存在
-	_, _, err := c.cli.ImageInspectWithRaw(c.ctx, image)
+	containers, err := client.cli.ContainerList(client.ctx, container.ListOptions{
+		All:     true,
+		Filters: args,
+	})
 	if err != nil {
-		log.Printf("镜像 %s 不存在，请先构建镜像", image)
-		c.err = fmt.Errorf("镜像 %s 不存在: %v", image, err)
-		return c
+		client.err = fmt.Errorf("检查容器失败: %v", err)
+		return client
 	}
-
-	// 创建目录
-	//tmpDir := fmt.Sprintf("/app/tmp/%s", language)
-	//if err := os.MkdirAll(tmpDir, 0755); err != nil {
-	//	log.Printf("创建目录 %s 失败: %v", tmpDir, err)
-	//	c.err = err
-	//	return c
-	//}
-
-	// 准备挂载卷
-	mounts := []string{fmt.Sprintf("/tmp/%s:/app", language)}
-
-	// 创建容器配置
-	config := &container.Config{
-		Image: image,
-		Cmd:   []string{"sleep", "infinity"},
+	if len(containers) == 0 {
+		return client.createContainer(client.images[language], language)
 	}
-
-	hostConfig := &container.HostConfig{
-		NetworkMode: container.NetworkMode("none"),
-		Binds:       mounts,
-	}
-
-	// 创建容器
-	resp, err := c.cli.ContainerCreate(c.ctx, config, hostConfig, nil, nil, name)
-	if err != nil {
-		// 检查是否因为容器已存在而失败
-		if strings.Contains(err.Error(), "already in use") {
-			log.Printf("容器 %s 已存在，尝试重启", name)
-
-			// 查找容器ID
-			args := filters.NewArgs()
-			args.Add("name", name)
-			containers, listErr := c.cli.ContainerList(c.ctx, types.ContainerListOptions{
-				All:     true,
-				Filters: args,
-			})
-			if listErr != nil {
-				log.Printf("查找容器失败: %v", listErr)
-				c.err = listErr
-				return c
-			}
-
-			if len(containers) > 0 {
-				// 重启容器
-				if restartErr := c.cli.ContainerRestart(c.ctx, containers[0].ID, container.StopOptions{}); restartErr != nil {
-					log.Printf("重启容器失败: %v", restartErr)
-					c.err = restartErr
-				}
-			}
-			return c
+	// 检查容器是否运行中
+	if containers[0].State != "running" {
+		log.Printf("容器 %s 未运行，正在启动...", containerName)
+		if err := client.cli.ContainerStart(client.ctx, containers[0].ID, container.StartOptions{}); err != nil {
+			client.err = fmt.Errorf("启动容器失败: %v", err)
+			return client
 		}
-
-		log.Printf("创建容器失败: %v", err)
-		c.err = err
-		return c
+		log.Printf("容器 %s 已启动", containerName)
 	}
-
-	// 启动容器
-	if err := c.cli.ContainerStart(c.ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
-		log.Printf("启动容器失败: %v", err)
-		c.err = err
-		return c
-	}
-
-	log.Printf("容器 %s 创建并启动成功: %s", name, resp.ID)
-	return c
+	return client
 }
 
 // 创建对应的文件夹
-func (c *containerSrvImpl) createContent() *containerSrvImpl {
+func (client *dockerContainerClient) createContent() *dockerContainerClient {
 	// 在/app/tmp下创建文件夹
-	for i := 0; i < len(c.language); i++ {
-		tempDir := fmt.Sprintf("/app/tmp/%s", c.language[i])
+	for i := 0; i < len(client.language); i++ {
+		tempDir := fmt.Sprintf("/app/tmp/%s", client.language[i])
 		if err := os.MkdirAll(tempDir, 0755); err != nil {
 			log.Printf("创建目录 %s 失败: %v", tempDir, err)
-			c.err = err
-			return c
+			client.err = err
+			return client
 		}
 		log.Printf("创建目录成功: %s", tempDir)
 	}
-	return c
+	return client
 }
 
-// CreateAllContainers 创建多个容器,容器名字跟构建的镜像名字一样
-func (c *containerSrvImpl) createAllContainers() error {
-	//构建镜像
-	for i := 0; i < len(c.language); i++ {
-		lau := c.language[i]
-		c.createContainer(lau, c.images[lau], c.images[lau])
-		if c.err != nil {
-			log.Printf("创建 %s 容器失败: %v", lau, c.err)
-			return c.err
-		}
-		// 等待一秒确保容器启动
-		time.Sleep(1 * time.Second)
+// CreateContainer 创建指定容器并启动
+func (client *dockerContainerClient) createContainer(image string, language string) *dockerContainerClient {
+	config := &container.Config{
+		Image:      image,
+		User:       "root",
+		WorkingDir: "/app",
+		Cmd:        []string{"sleep", "infinity"}, // 修改启动命令为 sleep
 	}
-	return c.err
+	hostConfig := &container.HostConfig{
+		ReadonlyRootfs: false,
+		CapDrop:        []string{"ALL"},
+		NetworkMode:    "none", // 关闭容器网络连接
+		Resources: container.Resources{
+			Memory:     512 * 1024 * 1024,
+			MemorySwap: 512 * 1024 * 1024,
+			CPUQuota:   100000,
+			CPUPeriod:  100000,
+			CPUCount:   1,
+		},
+		Binds: []string{fmt.Sprintf("/tmp/%s:/app", language)}, // 挂载到容器的/app目录
+	}
+	resp, err := client.cli.ContainerCreate(
+		client.ctx,
+		config,
+		hostConfig,
+		nil,
+		nil,
+		image,
+	)
+	if err != nil {
+		log.Println("domain.client.entity.createContainer() ContainerCreate err=", err)
+		client.err = err
+		return client
+	}
+	// 启动容器
+	if err := client.cli.ContainerStart(client.ctx, resp.ID, container.StartOptions{}); err != nil {
+		log.Printf("启动容器失败: %v", err)
+		client.err = err
+		return client
+	}
+	return client
+}
+
+func (c *dockerContainerClient) buildExec(ctx context.Context, cmd, id string, args []string) (string, error) {
+	// 1. 创建exec配置
+	execConfig := container.ExecOptions{
+		Cmd:          append([]string{cmd}, args...),
+		AttachStdout: true,
+		AttachStderr: true,
+	}
+
+	// 2. 创建exec实例
+	resp, err := c.cli.ContainerExecCreate(ctx, id, execConfig)
+	if err != nil {
+		log.Printf("创建exec失败: %v", err)
+		return "", fmt.Errorf("创建exec失败: %v", err)
+	}
+
+	// 3. 启动exec并获取输出流
+	exec, err := c.cli.ContainerExecAttach(ctx, resp.ID, container.ExecStartOptions{})
+	if err != nil {
+		log.Printf("启动exec失败: %v", err)
+		return "", fmt.Errorf("启动exec失败: %v", err)
+	}
+	defer exec.Close()
+
+	// 4. 异步读取输出（同时处理stdout和stderr）
+	var (
+		outputBuf bytes.Buffer
+		readErr   error
+		doneChan  = make(chan struct{})
+	)
+
+	go func() {
+		defer close(doneChan)
+		// 使用标准库方法分离stdout/stderr
+		_, readErr = stdcopy.StdCopy(&outputBuf, &outputBuf, exec.Conn)
+	}()
+
+	// 5. 等待执行完成或超时
+	select {
+	case <-doneChan:
+		// 正常读取完成
+	case <-ctx.Done():
+		log.Printf("命令执行超时")
+		return "", fmt.Errorf("命令执行超时")
+	}
+
+	// 6. 处理读取错误
+	if readErr != nil {
+		log.Printf("读取输出错误: %v", readErr)
+		return "", readErr
+	}
+	// 7. 获取退出状态
+	inspect, err := c.cli.ContainerExecInspect(ctx, resp.ID)
+	if err != nil {
+		log.Printf("获取退出状态失败: %v", err)
+		return "", fmt.Errorf("获取退出状态失败: %v", err)
+	}
+
+	// 8. 根据退出码判断结果
+	if inspect.ExitCode != 0 {
+		log.Printf("执行失败，退出码: %d", inspect.ExitCode)
+	} else {
+		log.Printf("执行成功")
+	}
+	// 打印完整输出
+	return outputBuf.String(), nil
+}
+
+func (c *dockerContainerClient) InContainerRunCode(language string, cmd string, args []string) (string, error) {
+	// 设置超时上下文
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	containerOne, err := c.cli.ContainerInspect(ctx, c.images[language])
+	if err != nil {
+		log.Println("容器ID未找到 err=", err)
+		return "", err
+	}
+	result, err := c.buildExec(ctx, cmd, containerOne.ID, args)
+	if err != nil {
+		if err.Error() == "命令执行超时" {
+			return "", err
+		}
+		return "", fmt.Errorf("内网服务器出错")
+	}
+	return result, nil
 }

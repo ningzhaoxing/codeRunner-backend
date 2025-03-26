@@ -43,7 +43,7 @@ func clientServiceRegister() (*client.ServiceImpl, error) {
 	// 日志
 	log := logger.NewLoggerTmpl()
 	// docker客户端
-	dockerClient := docker.NewContainerSrvImpl()
+	dockerClient := docker.NewDockerClient()
 	// docker容器
 	containerTmpl := docker.NewRunCode(dockerClient)
 	// websocket客户端
