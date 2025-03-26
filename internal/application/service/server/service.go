@@ -58,7 +58,7 @@ func (w *ServiceImpl) Run(cli server.WebsocketClient, weight int64) error {
 	for {
 		if _, err := client.Read(); err != nil {
 			w.Logger.Error(fmt.Sprintln("application.server.server.Run() Read() err=\n", err))
-			continue
+			return err
 		}
 	}
 }
