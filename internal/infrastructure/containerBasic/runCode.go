@@ -169,9 +169,10 @@ func (r *runCode) RunCode(request *proto.ExecuteRequest) (response proto.Execute
 	}
 	//删除目录
 	defer func() {
-		err := os.RemoveAll(r.path)
+		r.file.Close()
+		err = os.RemoveAll(r.path)
 		if err != nil {
-			log.Println("删除文件夹失败")
+			log.Println("删除文件夹失败,err=", err)
 			return
 		}
 	}()
