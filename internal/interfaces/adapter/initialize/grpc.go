@@ -1,10 +1,8 @@
 package initialize
 
 import (
-	"codeRunner-siwu/api/proto"
 	"codeRunner-siwu/internal/infrastructure/config"
-	"codeRunner-siwu/internal/interfaces/adapter/middleware"
-	"codeRunner-siwu/internal/interfaces/controller"
+	grpc2 "codeRunner-siwu/internal/infrastructure/grpc"
 	"context"
 	"fmt"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -26,23 +24,6 @@ func InitGrpc(c *config.Config, ctx context.Context) (net.Listener, *grpc.Server
 	}
 
 	// 注册grpc服务
-	s := register()
+	s := grpc2.Register()
 	return lis, s, etcdClient.Client
-}
-
-// register grpc服务注册
-func register() *grpc.Server {
-	// token中间件注册
-	u := grpc.UnaryInterceptor(middleware.UnaryInterceptor())
-	s := grpc.NewServer(u)
-
-	// token签发服务注册
-	token := controller.APIs.Auth
-	proto.RegisterTokenIssuerServer(s, &token)
-
-	// 代码运行服务注册
-	serve := controller.APIs.CodeRunnerSrv
-	proto.RegisterCodeRunnerServer(s, &serve)
-
-	return s
 }

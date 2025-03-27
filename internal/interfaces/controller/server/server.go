@@ -2,6 +2,7 @@ package server
 
 import (
 	"codeRunner-siwu/internal/infrastructure/websocket/server"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"log"
@@ -18,6 +19,7 @@ var upgrader = websocket.Upgrader{
 }
 
 func (ctl *EndpointCtl) HandleServer() gin.HandlerFunc {
+	fmt.Println("客户端连接建立请求进入...")
 	return func(c *gin.Context) {
 		weightString := c.Query("weight") // 获取服务器权重
 		weight, err := strconv.ParseInt(weightString, 10, 64)
