@@ -13,9 +13,9 @@ import (
 )
 
 type WebsocketClient interface {
-	Dail(TargetServer) error              // websocket客户端启动
-	Read() (*proto.ExecuteRequest, error) // 读取消息
-	Send(*proto.ExecuteResponse) error    // 发送消息post到调用者
+	Dail(TargetServer) error                  // websocket客户端启动
+	Read() (*proto.ExecuteRequest, error)     // 读取消息
+	Send(*proto.ExecuteResponse, error) error // 发送消息post到调用者
 	Close() error
 }
 
@@ -67,8 +67,12 @@ func (i *WebsocketClientImpl) Read() (*proto.ExecuteRequest, error) {
 }
 
 // Send 将msg通过post发送到回调url
-func (i *WebsocketClientImpl) Send(msg *proto.ExecuteResponse) error {
+func (i *WebsocketClientImpl) Send(msg *proto.ExecuteResponse, err error) error {
 	// 序列化msg
+	if err != nil {
+		msg.Err = err.Error()
+	}
+
 	data, err := json.Marshal(*msg)
 	if err != nil {
 		log.Println("infrastructure-websocket-client innerServer Send() 的 json.Marshal err=", err)
