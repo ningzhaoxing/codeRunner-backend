@@ -5,7 +5,7 @@ import (
 	"log"
 )
 
-var configPath = "./configs/config.yaml"
+var configPath = "./configs/dev.yaml"
 
 type Config struct {
 	Server ServerConfig `yaml:"server"`
