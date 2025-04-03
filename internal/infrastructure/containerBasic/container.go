@@ -112,11 +112,11 @@ func (client *dockerContainerClient) createContent() *dockerContainerClient {
 	for i := 0; i < len(client.language); i++ {
 		tempDir := fmt.Sprintf("/app/tmp/%s", client.language[i])
 		if err := os.MkdirAll(tempDir, 0755); err != nil {
-			log.Printf("创建目录 %s 失败: %v", tempDir, err)
+			logrus.Error("创建目录 %s 失败: %v", tempDir, err)
 			client.err = err
 			return client
 		}
-		log.Printf("创建目录成功: %s", tempDir)
+		logrus.Info("创建目录成功: %s", tempDir)
 	}
 	return client
 }
@@ -151,13 +151,13 @@ func (client *dockerContainerClient) createContainer(image string, language stri
 		image,
 	)
 	if err != nil {
-		log.Println("domain.client.entity.createContainer() ContainerCreate err=", err)
+		logrus.Error("domain.client.entity.createContainer() ContainerCreate err=", err)
 		client.err = err
 		return client
 	}
 	// 启动容器
 	if err := client.cli.ContainerStart(client.ctx, resp.ID, container.StartOptions{}); err != nil {
-		log.Printf("启动容器失败: %v", err)
+		logrus.Error("启动容器失败: %v", err)
 		client.err = err
 		return client
 	}
@@ -175,14 +175,14 @@ func (c *dockerContainerClient) buildExec(ctx context.Context, cmd, id string, a
 	// 2. 创建exec实例
 	resp, err := c.cli.ContainerExecCreate(ctx, id, execConfig)
 	if err != nil {
-		log.Printf("创建exec失败: %v", err)
+		logrus.Error("创建exec失败: %v", err)
 		return "", fmt.Errorf("创建exec失败: %v", err)
 	}
 
 	// 3. 启动exec并获取输出流
 	exec, err := c.cli.ContainerExecAttach(ctx, resp.ID, container.ExecStartOptions{})
 	if err != nil {
-		log.Printf("启动exec失败: %v", err)
+		logrus.Error("启动exec失败: %v", err)
 		return "", fmt.Errorf("启动exec失败: %v", err)
 	}
 	defer exec.Close()
@@ -205,27 +205,27 @@ func (c *dockerContainerClient) buildExec(ctx context.Context, cmd, id string, a
 	case <-doneChan:
 		// 正常读取完成
 	case <-ctx.Done():
-		log.Printf("命令执行超时")
+		logrus.Error("命令执行超时")
 		return "", fmt.Errorf("命令执行超时")
 	}
 
 	// 6. 处理读取错误
 	if readErr != nil {
-		log.Printf("读取输出错误: %v", readErr)
+		logrus.Error("读取输出错误: %v", readErr)
 		return "", readErr
 	}
 	// 7. 获取退出状态
 	inspect, err := c.cli.ContainerExecInspect(ctx, resp.ID)
 	if err != nil {
-		log.Printf("获取退出状态失败: %v", err)
+		logrus.Error("获取退出状态失败: %v", err)
 		return "", fmt.Errorf("获取退出状态失败: %v", err)
 	}
 
 	// 8. 根据退出码判断结果
 	if inspect.ExitCode != 0 {
-		log.Printf("执行失败，退出码: %d", inspect.ExitCode)
+		logrus.Error("执行失败，退出码: %d", inspect.ExitCode)
 	} else {
-		log.Printf("执行成功")
+		logrus.Error("执行成功")
 	}
 	// 打印完整输出
 	return outputBuf.String(), nil
@@ -237,7 +237,7 @@ func (c *dockerContainerClient) InContainerRunCode(language string, cmd string, 
 	defer cancel()
 	containerOne, err := c.cli.ContainerInspect(ctx, c.images[language])
 	if err != nil {
-		log.Println("容器ID未找到 err=", err)
+		logrus.Error("容器ID未找到 err=", err)
 		return 0, "", err
 	}
 	start := time.Now()
