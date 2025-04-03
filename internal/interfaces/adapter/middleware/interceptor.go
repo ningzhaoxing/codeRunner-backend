@@ -2,12 +2,12 @@ package middleware
 
 import (
 	token2 "codeRunner-siwu/internal/infrastructure/common/token"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"log"
 )
 
 func UnaryInterceptor() grpc.UnaryServerInterceptor {
@@ -18,14 +18,14 @@ func UnaryInterceptor() grpc.UnaryServerInterceptor {
 		// 从上下文中获取元数据
 		md, ok := metadata.FromIncomingContext(ctx)
 		if !ok {
-			log.Println("missing metadata")
+			logrus.Error("missing metadata")
 			return nil, status.Error(codes.InvalidArgument, "missing metadata")
 		}
 
 		// 从元数据中获取 token
 		token, ok := md["token"]
 		if !ok || len(token) == 0 {
-			log.Println("token not found")
+			logrus.Error("token not found")
 			return nil, status.Error(codes.Unauthenticated, "token not found")
 		}
 
@@ -33,7 +33,7 @@ func UnaryInterceptor() grpc.UnaryServerInterceptor {
 		tokenManager := token2.NewToken()
 		valid, err := tokenManager.Verify(token[0])
 		if err != nil || !valid {
-			log.Println("invalid token")
+			logrus.Error("invalid token")
 			return nil, status.Error(codes.Unauthenticated, "invalid token")
 		}
 		// 如果 token 有效，继续处理请求

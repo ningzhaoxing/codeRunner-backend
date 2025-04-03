@@ -4,7 +4,7 @@ import (
 	"codeRunner-siwu/api/proto"
 	docker "codeRunner-siwu/internal/infrastructure/containerBasic"
 	"codeRunner-siwu/internal/infrastructure/websocket/client"
-	"log"
+	"github.com/sirupsen/logrus"
 )
 
 type InnerServerDomainImpl struct {
@@ -18,7 +18,7 @@ func NewInnerServerDomainImpl(container docker.Container, websocketClient client
 
 func (i *InnerServerDomainImpl) Dail(targetServer client.TargetServer) error {
 	if err := i.WebsocketClient.Dail(targetServer); err != nil {
-		log.Println("domain.client.entity.Dail() Dail err=", err)
+		logrus.Error("domain.client.entity.Dail() Dail err=", err)
 		return err
 	}
 	return nil
@@ -27,7 +27,7 @@ func (i *InnerServerDomainImpl) Dail(targetServer client.TargetServer) error {
 func (i *InnerServerDomainImpl) RunCode(request *proto.ExecuteRequest) (*proto.ExecuteResponse, error) {
 	response, err := i.Container.RunCode(request)
 	if err != nil {
-		log.Println("domain.client.entity.Service() Service err=", err)
+		logrus.Error("domain.client.entity.Service() Service err=", err)
 		return nil, err
 	}
 	return &response, err
@@ -36,7 +36,7 @@ func (i *InnerServerDomainImpl) RunCode(request *proto.ExecuteRequest) (*proto.E
 func (i *InnerServerDomainImpl) Read() (*proto.ExecuteRequest, error) {
 	msg, err := i.WebsocketClient.Read()
 	if err != nil {
-		log.Println("domain.client.entity.Read() WebsocketClient.Read err=", err)
+		logrus.Error("domain.client.entity.Read() WebsocketClient.Read err=", err)
 		return nil, err
 	}
 	return msg, nil
@@ -44,7 +44,7 @@ func (i *InnerServerDomainImpl) Read() (*proto.ExecuteRequest, error) {
 
 func (i *InnerServerDomainImpl) Send(response *proto.ExecuteResponse, err error) error {
 	if err := i.WebsocketClient.Send(response, err); err != nil {
-		log.Println("domain.client.entity.Send() WebsocketClient.Send err=", err)
+		logrus.Error("domain.client.entity.Send() WebsocketClient.Send err=", err)
 		return err
 	}
 	return nil

@@ -2,10 +2,10 @@ package weightedRRBalance
 
 import (
 	"codeRunner-siwu/internal/infrastructure/common/errors"
-	"fmt"
-	"log"
+	"github.com/sirupsen/logrus"
 )
 
+// WeightedRR 权重随机算法
 type WeightedRR struct {
 	nodes       []*WeightNode // 所有的服务实例
 	totalWeight int64
@@ -47,9 +47,8 @@ func (w *WeightedRR) UpdateWeight(serverId string, weight int64) {
 }
 
 func (w *WeightedRR) Next() (*WeightNode, error) {
-	fmt.Println("进来了", len(w.nodes))
 	if len(w.nodes) == 0 {
-		log.Printf("infrastructure-bananceStrategy-weightedRRBalance-weightedRR  Next() 的 err = %v ", errors.NotFoundEffectiveServer)
+		logrus.Error("infrastructure-bananceStrategy-weightedRRBalance-weightedRR  Next() 的 err = %v ", errors.NotFoundEffectiveServer)
 		return nil, errors.NotFoundEffectiveServer
 	}
 

@@ -17,7 +17,11 @@ func RunServer() {
 	}
 
 	// 初始化日志
-	InitLogger()
+	err = InitLogger(c)
+	if err != nil {
+		panic("日志文件解析错误" + err.Error())
+		return
+	}
 
 	// 服务注册
 	serverServiceRegister()
@@ -54,7 +58,11 @@ func RunClient() {
 	}
 
 	// 初始化日志
-	InitLogger()
+	err = InitLogger(c)
+	if err != nil {
+		panic("日志文件解析错误" + err.Error())
+		return
+	}
 
 	srv, err := clientServiceRegister()
 	if err != nil {

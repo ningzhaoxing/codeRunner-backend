@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
-	"log"
+	"github.com/sirupsen/logrus"
 	"net/http"
 	"time"
 )
@@ -53,11 +53,9 @@ func (i *WebsocketClientImpl) Dail(targetServer TargetServer) error {
 func (i *WebsocketClientImpl) Read() (*proto.ExecuteRequest, error) {
 	_, m, err := i.conn.ReadMessage()
 	if err != nil {
-		log.Println("infrastructure-websocket-client innerServer的Read()  err=", err)
+		logrus.Error("infrastructure-websocket-client innerServer的Read()  err=", err)
 		return nil, err
 	}
-
-	fmt.Println(string(m))
 
 	msg := new(proto.ExecuteRequest)
 	if err = json.Unmarshal(m, msg); err != nil {
@@ -75,24 +73,24 @@ func (i *WebsocketClientImpl) Send(msg *proto.ExecuteResponse, err error) error 
 
 	data, err := json.Marshal(*msg)
 	if err != nil {
-		log.Println("infrastructure-websocket-client innerServer Send() 的 json.Marshal err=", err)
+		logrus.Error("infrastructure-websocket-client innerServer Send() 的 json.Marshal err=", err)
 		return err
 	}
 
 	// 发送msg
 	req, err := http.NewRequest("POST", msg.CallBackUrl, bytes.NewBuffer(data))
 	if err != nil {
-		log.Println("infrastructure-websocket-client innerServer Send() 的 client.NewRequest err=", err)
+		logrus.Error("infrastructure-websocket-client innerServer Send() 的 client.NewRequest err=", err)
 		return err
 	}
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Println("infrastructure-websocket-client innerServer Send() 的 client.Do err=", err)
+		logrus.Error("infrastructure-websocket-client innerServer Send() 的 client.Do err=", err)
 		return err
 	}
 	if resp.StatusCode != 200 {
-		log.Println("infrastructure-websocket-client innerServer Send() 的 resp.StatusCode 发送失败", resp.StatusCode)
+		logrus.Error("infrastructure-websocket-client innerServer Send() 的 resp.StatusCode 发送失败", resp.StatusCode)
 		return errors.ResultSendFail
 	}
 	return nil
@@ -116,7 +114,7 @@ func (i *WebsocketClientImpl) connect() error {
 	url := fmt.Sprintf("ws://%s:%s/%s?%s", i.targetServer.host, i.targetServer.port, i.targetServer.path, i.targetServer.rowQuery)
 	conn, _, err := dialer.Dial(url, nil)
 	if err != nil {
-		log.Println("内网服务器客户端发起链接失败 err=", err)
+		logrus.Error("内网服务器客户端发起链接失败 err=", err)
 		return err
 	}
 
@@ -138,18 +136,18 @@ func (i *WebsocketClientImpl) reconnect() error {
 	maxAttempts := 3
 
 	for {
-		log.Println("尝试重新连接...")
+		logrus.Info("尝试重新连接...")
 		err := i.connect()
 		if err == nil {
-			log.Println("重连成功")
+			logrus.Info("重连成功")
 			return nil
 		}
 		maxAttempts--
 		if maxAttempts <= 0 {
-			log.Printf("重连失败已达%d次，停止重试", maxAttempts)
+			logrus.Info("重连失败已达%d次，停止重试", maxAttempts)
 			return errors.MaxRetryAttemptsReached
 		}
-		log.Printf("重连失败: %v, %d秒后重试\n", err, i.reconnectWait/time.Second)
+		logrus.Error("重连失败: %v, %d秒后重试\n", err, i.reconnectWait/time.Second)
 		time.Sleep(i.reconnectWait)
 	}
 }
@@ -165,9 +163,9 @@ func (i *WebsocketClientImpl) heartBeat() {
 		select {
 		case <-ticker.C:
 			if err := i.conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second)); err != nil {
-				log.Println("发送心跳失败:", err)
+				logrus.Error("发送心跳失败:", err)
 				if err := i.reconnect(); err != nil {
-					log.Println("重连失败，停止心跳检测")
+					logrus.Error("重连失败，停止心跳检测")
 					return
 				}
 			}

@@ -1,28 +1,54 @@
 package logger
 
-import "github.com/sirupsen/logrus"
+import (
+	"codeRunner-siwu/internal/infrastructure/config"
+	"github.com/sirupsen/logrus"
+	"os"
+)
 
 type Logger interface {
-	Info(msg string)
-	Error(msg string)
-	Panic(msg string)
+	InitLogger() error
 }
 
-type LoggerTmpl struct {
+type LogrusImpl struct {
+	config config.Config
 }
 
-func NewLoggerTmpl() *LoggerTmpl {
-	return &LoggerTmpl{}
+func NewLogrusImpl(config config.Config) *LogrusImpl {
+	return &LogrusImpl{config: config}
 }
 
-func (l *LoggerTmpl) Info(msg string) {
-	logrus.Info(msg)
-}
+func (l *LogrusImpl) InitLogger() error {
+	// 创建一个文件用于存储日志
+	logFile, err := os.OpenFile(l.config.Logger.Path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		logrus.Fatalf("The log file could not be opened: %v", err)
+	}
+	defer logFile.Close()
 
-func (l *LoggerTmpl) Error(msg string) {
-	logrus.Error(msg)
-}
+	// 设置日志等级
+	level, err := logrus.ParseLevel(l.config.Logger.Level)
+	if err != nil {
+		logrus.Fatal("Invalid log level", err)
+		return err
+	}
+	logrus.SetLevel(level)
 
-func (l *LoggerTmpl) Panic(msg string) {
-	logrus.Panic(msg)
+	// 设置日志格式
+	switch l.config.Logger.Format {
+	case "json":
+		logrus.SetFormatter(&logrus.JSONFormatter{
+			TimestampFormat: "2006-01-02 15:04:05",
+		})
+	case "text":
+		logrus.SetFormatter(&logrus.TextFormatter{
+			FullTimestamp:   true,
+			TimestampFormat: "2006-01-02 15:04:05",
+		})
+	default:
+		logrus.Warn("Unsupported log format, using text as default")
+	}
+
+	logrus.SetOutput(logFile)
+	return nil
 }

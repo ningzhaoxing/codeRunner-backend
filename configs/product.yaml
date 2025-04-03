@@ -16,3 +16,9 @@ client:
     path: "ws"
   app:
     weight: 1
+
+log:
+  level: "info"
+  format: "json"
+  enable_console : false
+  path: "./app.log"

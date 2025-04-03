@@ -7,7 +7,6 @@ import (
 	"codeRunner-siwu/internal/domain/client/entity"
 	"codeRunner-siwu/internal/domain/server/service"
 	"codeRunner-siwu/internal/infrastructure/bananceStrategy/weightedRRBalance"
-	"codeRunner-siwu/internal/infrastructure/common/logger"
 	"codeRunner-siwu/internal/infrastructure/common/token"
 	docker "codeRunner-siwu/internal/infrastructure/containerBasic"
 	client2 "codeRunner-siwu/internal/infrastructure/websocket/client"
@@ -19,18 +18,16 @@ func serverServiceRegister() {
 		依赖注入
 	*/
 
-	// 日志
-	log := logger.NewLoggerTmpl()
 	// token实现
 	tokenImpl := token.NewToken()
 	// token验证
-	tokenSrv := auth.NewService(tokenImpl, log)
+	tokenSrv := auth.NewService(tokenImpl)
 	// 负载均衡策略
 	balanceStrategy := weightedRRBalance.NewWeightedRR()
 	// 客户端manager
 	clientManagerDomain := service.NewClientManagerDomainTmpl(balanceStrategy)
 	// 服务
-	srv := server.NewServiceImpl(clientManagerDomain, log)
+	srv := server.NewServiceImpl(clientManagerDomain)
 	// 注入
 	controller.InitSrbInject(srv, tokenSrv)
 }
@@ -40,8 +37,6 @@ func clientServiceRegister() (*client.ServiceImpl, error) {
 		依赖注入
 	*/
 
-	// 日志
-	log := logger.NewLoggerTmpl()
 	// docker客户端
 	dockerClient := docker.NewDockerClient()
 	// docker容器
@@ -51,7 +46,7 @@ func clientServiceRegister() (*client.ServiceImpl, error) {
 	// 内网服务器领域
 	InnerServerDomainImpl := entity.NewInnerServerDomainImpl(containerTmpl, websocketClientImpl)
 	// 服务
-	clientSvr := client.NewServiceImpl(InnerServerDomainImpl, log)
+	clientSvr := client.NewServiceImpl(InnerServerDomainImpl)
 
 	return clientSvr, nil
 }

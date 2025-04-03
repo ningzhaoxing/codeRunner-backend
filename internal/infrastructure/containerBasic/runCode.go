@@ -4,7 +4,7 @@ import (
 	"codeRunner-siwu/api/proto"
 	"fmt"
 	"github.com/google/uuid"
-	"log"
+	"github.com/sirupsen/logrus"
 	"os"
 	"path/filepath"
 	"strings"
@@ -54,7 +54,7 @@ func (r *runCode) getFileExtension(lang string) *runCode {
 // 创建目录
 func (r *runCode) createBlockContent(path string) *runCode {
 	if r.err != nil {
-		log.Println("获取拓展名失败 err=", r.err)
+		logrus.Error("获取拓展名失败 err=", r.err)
 		return r
 	}
 	r.err = os.MkdirAll(path, 0775)
@@ -65,7 +65,7 @@ func (r *runCode) createBlockContent(path string) *runCode {
 // 创建空文件
 func (r *runCode) createBlockFile() *runCode {
 	if r.err != nil {
-		log.Println("创建UUid目录失败 err=", r.err)
+		logrus.Error("创建UUid目录失败 err=", r.err)
 		return r
 	}
 	codePath := fmt.Sprintf("%s/main.%s", r.path, r.extension)
@@ -76,7 +76,7 @@ func (r *runCode) createBlockFile() *runCode {
 // 写入代码
 func (r *runCode) writeCode(code string) *runCode {
 	if r.err != nil {
-		log.Println("runCode-writeCode err =", r.err)
+		logrus.Error("runCode-writeCode err =", r.err)
 		return r
 	}
 	_, r.err = r.file.WriteString(code)
@@ -96,7 +96,7 @@ func (r *runCode) createFile(language, code, path string) error {
 	}
 	r.getFileExtension(language).createBlockContent(path).createBlockFile().writeCode(code).sync()
 	if r.err != nil {
-		log.Println("runCode-createFile 的 err=", r.err)
+		logrus.Error("runCode-createFile 的 err=", r.err)
 		return r.err
 	}
 	return nil
@@ -164,7 +164,7 @@ func (r *runCode) RunCode(request *proto.ExecuteRequest) (response proto.Execute
 	//创建文件
 	err = r.createFile(request.Language, request.CodeBlock, path)
 	if err != nil {
-		log.Println(" containerBasic-RunCode-createFile err=", err)
+		logrus.Error(" containerBasic-RunCode-createFile err=", err)
 		return response, err
 	}
 	//删除目录
@@ -172,7 +172,7 @@ func (r *runCode) RunCode(request *proto.ExecuteRequest) (response proto.Execute
 		r.file.Close()
 		err = os.RemoveAll(r.path)
 		if err != nil {
-			log.Println("删除文件夹失败,err=", err)
+			logrus.Error("删除文件夹失败,err=", err)
 			return
 		}
 	}()

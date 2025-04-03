@@ -8,6 +8,7 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/sirupsen/logrus"
 	"log"
 	"os"
 	"time"
@@ -95,12 +96,12 @@ func (client *dockerContainerClient) ensureContainerExists(language string) *doc
 	}
 	// 检查容器是否运行中
 	if containers[0].State != "running" {
-		log.Printf("容器 %s 未运行，正在启动...", containerName)
+		logrus.Info("容器 %s 未运行，正在启动...", containerName)
 		if err := client.cli.ContainerStart(client.ctx, containers[0].ID, container.StartOptions{}); err != nil {
 			client.err = fmt.Errorf("启动容器失败: %v", err)
 			return client
 		}
-		log.Printf("容器 %s 已启动", containerName)
+		logrus.Info("容器 %s 已启动", containerName)
 	}
 	return client
 }

@@ -5,7 +5,7 @@ import (
 	"codeRunner-siwu/internal/infrastructure/bananceStrategy"
 	"codeRunner-siwu/internal/infrastructure/bananceStrategy/weightedRRBalance"
 	"codeRunner-siwu/internal/infrastructure/common/errors"
-	"log"
+	"github.com/sirupsen/logrus"
 	"sync"
 )
 
@@ -36,10 +36,12 @@ func (s *ClientManagerDomainTmpl) AddClient(client *entity.Client, weight int64)
 func (s *ClientManagerDomainTmpl) RemoveClient(id string) error {
 	client, err := s.GetClientById(id)
 	if err != nil {
+		logrus.Error("domain.server.service.RemoveClient() GetClientById err=", err)
 		return err
 	}
 
 	if err := client.Close(); err != nil {
+		logrus.Error("domain.server.service.RemoveClient() Close err=", err)
 		return err
 	}
 
@@ -51,6 +53,7 @@ func (s *ClientManagerDomainTmpl) RemoveClient(id string) error {
 func (s *ClientManagerDomainTmpl) GetClientById(id string) (*entity.Client, error) {
 	client, ok := s.clients.Load(id)
 	if !ok {
+		logrus.Error("domain.server.service.RemoveClient() Load err=", errors.NotFoundEffectiveServer)
 		return nil, errors.NotFoundEffectiveServer
 	}
 	return client.(*entity.Client), nil
@@ -59,12 +62,13 @@ func (s *ClientManagerDomainTmpl) GetClientById(id string) (*entity.Client, erro
 func (s *ClientManagerDomainTmpl) GetClientByBalance() (*entity.Client, error) {
 	node, err := s.LoadBalance.Get()
 	if err != nil {
-		log.Println("domain.server.service.GetClientByBalance() Get err=", err)
+		logrus.Error("domain.server.service.GetClientByBalance() Get err=", err)
 		return nil, err
 	}
 
 	client, ok := s.clients.Load(node.GetId())
 	if !ok {
+		logrus.Error("domain.server.service.Load() Get err=", errors.NotFoundEffectiveServer)
 		return nil, errors.NotFoundEffectiveServer
 	}
 	return client.(*entity.Client), nil

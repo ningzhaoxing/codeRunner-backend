@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	"log"
+	"github.com/sirupsen/logrus"
 	"net/http"
 	"strconv"
 )
@@ -24,7 +24,7 @@ func (ctl *EndpointCtl) HandleServer() gin.HandlerFunc {
 		weightString := c.Query("weight") // 获取服务器权重
 		weight, err := strconv.ParseInt(weightString, 10, 64)
 		if err != nil {
-			log.Println("权重转换错误 err", err)
+			logrus.Error("权重转换错误 err", err)
 			return
 		}
 
