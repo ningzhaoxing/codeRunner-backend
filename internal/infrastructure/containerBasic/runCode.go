@@ -11,7 +11,7 @@ import (
 )
 
 type Container interface {
-	RunCode(request *proto.ExecuteRequest) (response proto.ExecuteResponse, err error)
+	RunCode(request *proto.ExecuteRequest) (float64, proto.ExecuteResponse, error)
 }
 
 type runCode struct {
@@ -142,19 +142,19 @@ func (r *runCode) getCommand(language, path string) (string, []string) {
 	return "", nil
 }
 
-func (r *runCode) runCodeContainer(language, path string) (string, error) {
+func (r *runCode) runCodeContainer(language, path string) (float64, string, error) {
 	cmd, args := r.getCommand(language, path)
 	if cmd == "" {
-		return "", fmt.Errorf("不支持的语言类型: %s", language)
+		return 0, "", fmt.Errorf("不支持的语言类型: %s", language)
 	}
-	logContent, err := r.InContainerRunCode(language, cmd, args)
+	duration, logContent, err := r.InContainerRunCode(language, cmd, args)
 	if err != nil {
-		return "", err
+		return 0, "", err
 	}
-	return logContent, nil
+	return duration, logContent, nil
 }
 
-func (r *runCode) RunCode(request *proto.ExecuteRequest) (response proto.ExecuteResponse, err error) {
+func (r *runCode) RunCode(request *proto.ExecuteRequest) (duration float64, response proto.ExecuteResponse, err error) {
 	response.Id = request.Id
 	response.Uid = request.Uid
 	response.CallBackUrl = request.CallBackUrl
@@ -165,7 +165,7 @@ func (r *runCode) RunCode(request *proto.ExecuteRequest) (response proto.Execute
 	err = r.createFile(request.Language, request.CodeBlock, path)
 	if err != nil {
 		log.Println(" containerBasic-RunCode-createFile err=", err)
-		return response, err
+		return 0, response, err
 	}
 	//删除目录
 	defer func() {
@@ -178,10 +178,10 @@ func (r *runCode) RunCode(request *proto.ExecuteRequest) (response proto.Execute
 	}()
 	//构建文件路径
 	containerPath := fmt.Sprintf("/app/%s/main.%s", uniqueID, r.extension)
-	response.Result, err = r.runCodeContainer(request.Language, containerPath)
+	duration, response.Result, err = r.runCodeContainer(request.Language, containerPath)
 	if err != nil {
 		response.Err = err.Error()
-		return response, err
+		return 0, response, err
 	}
-	return response, nil
+	return duration, response, nil
 }

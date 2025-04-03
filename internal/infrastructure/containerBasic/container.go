@@ -14,7 +14,7 @@ import (
 )
 
 type DockerContainer interface {
-	InContainerRunCode(language string, cmd string, args []string) (string, error)
+	InContainerRunCode(language string, cmd string, args []string) (float64, string, error)
 	GetContains(language string) (container string)
 }
 
@@ -230,21 +230,24 @@ func (c *dockerContainerClient) buildExec(ctx context.Context, cmd, id string, a
 	return outputBuf.String(), nil
 }
 
-func (c *dockerContainerClient) InContainerRunCode(language string, cmd string, args []string) (string, error) {
+func (c *dockerContainerClient) InContainerRunCode(language string, cmd string, args []string) (float64, string, error) {
 	// 设置超时上下文
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	containerOne, err := c.cli.ContainerInspect(ctx, c.images[language])
 	if err != nil {
 		log.Println("容器ID未找到 err=", err)
-		return "", err
+		return 0, "", err
 	}
+	start := time.Now()
 	result, err := c.buildExec(ctx, cmd, containerOne.ID, args)
+	elapsed := time.Since(start)
+	duration := elapsed.Seconds()
 	if err != nil {
 		if err.Error() == "命令执行超时" {
-			return "", err
+			return 0, "", err
 		}
-		return "", fmt.Errorf("内网服务器出错")
+		return 0, "", fmt.Errorf("内网服务器出错")
 	}
-	return result, nil
+	return duration, result, nil
 }
