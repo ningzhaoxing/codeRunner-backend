@@ -26,12 +26,6 @@ FROM alpine:latest
 
 WORKDIR /app
 COPY --from=builder --chown=runner /app/code-runner .
-COPY --chown=runner configs/config.yaml ./configs/
-
-# 设置时区
-RUN apk --no-cache add tzdata && \
-    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
-    echo "Asia/Shanghai" > /etc/timezone && \
-    apk del tzdata
+COPY --chown=runner configs/dev.yaml ./configs/
 
 ENTRYPOINT ["/app/code-runner"]

@@ -42,8 +42,8 @@ func (i *InnerServerDomainImpl) Read() (*proto.ExecuteRequest, error) {
 	return msg, nil
 }
 
-func (i *InnerServerDomainImpl) Send(response *proto.ExecuteResponse) error {
-	if err := i.WebsocketClient.Send(response); err != nil {
+func (i *InnerServerDomainImpl) Send(response *proto.ExecuteResponse, err error) error {
+	if err := i.WebsocketClient.Send(response, err); err != nil {
 		log.Println("domain.client.entity.Send() WebsocketClient.Send err=", err)
 		return err
 	}

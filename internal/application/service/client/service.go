@@ -33,10 +33,11 @@ func (w *ServiceImpl) Run(c config.Config) error {
 		// 读取消息
 		msg, err := w.InnerServerDomain.Read()
 		if err != nil {
-			w.Logger.Error(fmt.Sprintln("application.client.Run() Read err=", err))
-			continue
+			w.Logger.Error(fmt.Sprintln("websocket客户端已被关闭,请重启服务。application.client.Run() Read err=", err))
+			return err
 		}
 		fmt.Println("读取到消息:", msg)
+
 		// 执行代码
 		res, err := w.RunCode(msg)
 		if err != nil {
@@ -44,8 +45,9 @@ func (w *ServiceImpl) Run(c config.Config) error {
 			continue
 		}
 		fmt.Println("处理结果为:", res)
+
 		// 发送结果
-		if err = w.send(res); err != nil {
+		if err = w.send(res, err); err != nil {
 			w.Logger.Error(fmt.Sprintln("application.client.Run() send err=", err))
 			continue
 		}
@@ -55,7 +57,7 @@ func (w *ServiceImpl) Run(c config.Config) error {
 // 向服务端建立连接
 func (w *ServiceImpl) dail(c config.Config) error {
 	targetServer := client.NewTargetServer(c.Client.Server.Host, c.Client.Server.Port, c.Client.Server.Path, fmt.Sprintf("weight=%d", c.Client.App.Weight))
-
+	// 发起websocket连接
 	err := w.InnerServerDomain.Dail(*targetServer)
 	if err != nil {
 		w.Logger.Error(fmt.Sprintln("application.client.dail() Dail err=\n", err))
@@ -64,8 +66,9 @@ func (w *ServiceImpl) dail(c config.Config) error {
 	return nil
 }
 
-func (w *ServiceImpl) send(res *proto.ExecuteResponse) error {
-	if err := w.InnerServerDomain.Send(res); err != nil {
+func (w *ServiceImpl) send(res *proto.ExecuteResponse, err error) error {
+	// 发送消息
+	if err := w.InnerServerDomain.Send(res, err); err != nil {
 		w.Logger.Error(fmt.Sprintln("application.client.send() Send err=\n", err))
 		return err
 	}

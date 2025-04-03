@@ -8,6 +8,6 @@ import (
 type InnerServerDomain interface {
 	Dail(client.TargetServer) error
 	Read() (*proto.ExecuteRequest, error)
-	Send(*proto.ExecuteResponse) error
+	Send(*proto.ExecuteResponse, error) error
 	RunCode(*proto.ExecuteRequest) (*proto.ExecuteResponse, error)
 }
