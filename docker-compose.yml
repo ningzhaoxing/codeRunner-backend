@@ -1,49 +1,13 @@
 version: '3.8'
 
 services:
-  code-runner-api-client:
+  server:
     build:
       context: .
       dockerfile: builds/api/Dockerfile
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /tmp:/app/tmp:shared
     environment:
       - APP_ENV=production
       - DOCKER_HOST=unix:///var/run/docker.sock
-
-  # 以下服务仅用于构建镜像，不自动运行
-  go-runner:
-    image: code-runner-go:latest
-    build:
-      context: .
-      dockerfile: builds/runners/go.Dockerfile
-    profiles: ["build-only"]
-
-  python-runner:
-    image: code-runner-python:latest
-    build:
-      context: .
-      dockerfile: builds/runners/python.Dockerfile
-    profiles: ["build-only"]
-
-  cpp-runner:
-    image: code-runner-cpp:latest
-    build:
-      context: .
-      dockerfile: builds/runners/cpp.Dockerfile
-    profiles: ["build-only"]
-
-  java-runner:
-    image: code-runner-java:latest
-    build:
-      context: .
-      dockerfile: builds/runners/java.Dockerfile
-    profiles: ["build-only"]
-
-  js-runner:
-    image: code-runner-js:latest
-    build:
-      context: .
-      dockerfile: builds/runners/js.Dockerfile
-    profiles: [ "build-only" ]
+    ports:
+      - "50012:50012"   # 处理restful请求
+      - "50011:50011"   # 处理grpc请求
