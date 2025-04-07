@@ -5,5 +5,6 @@ import (
 )
 
 func main() {
+	// 客户端启动
 	initialize.RunClient()
 }
