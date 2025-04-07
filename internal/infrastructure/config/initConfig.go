@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -57,5 +58,6 @@ func LoadConfig(config *Config) error {
 		logrus.Error("infrastructure-config LoadConfig()的 viper.Unmarshal err  %v", err)
 		return err
 	}
+	fmt.Println(config)
 	return nil
 }

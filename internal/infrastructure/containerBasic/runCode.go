@@ -12,7 +12,7 @@ import (
 )
 
 type Container interface {
-	RunCode(request *proto.ExecuteRequest) (response proto.ExecuteResponse, err error)
+	RunCode(request *proto.ExecuteRequest) (duration float64, response proto.ExecuteResponse, err error)
 }
 
 type runCode struct {

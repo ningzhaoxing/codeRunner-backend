@@ -17,8 +17,8 @@ client:
   app:
     weight: 1
 
-log:
+logger:
   level: "info"
   format: "json"
-  enable_console : false
+  enable_console: false
   path: "./app.log"
