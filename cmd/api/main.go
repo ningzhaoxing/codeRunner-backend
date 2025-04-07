@@ -5,6 +5,6 @@ import (
 )
 
 func main() {
-	// 服务端启动
+	// 服务端启动xx
 	initialize.RunServer()
 }
