@@ -2,8 +2,9 @@ package logger
 
 import (
 	"codeRunner-siwu/internal/infrastructure/config"
+	"github.com/lestrrat-go/file-rotatelogs"
 	"github.com/sirupsen/logrus"
-	"os"
+	"time"
 )
 
 type Logger interface {
@@ -20,11 +21,12 @@ func NewLogrusImpl(config config.Config) *LogrusImpl {
 
 func (l *LogrusImpl) InitLogger() error {
 	// 创建一个文件用于存储日志
-	logFile, err := os.OpenFile(l.config.Logger.Path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	if err != nil {
-		logrus.Fatalf("The log file could not be opened: %v", err)
-	}
-	defer logFile.Close()
+	writer, _ := rotatelogs.New(
+		"/study/log/app-%Y%m%d.log",
+		rotatelogs.WithMaxAge(30*24*time.Hour),    // 保留7天
+		rotatelogs.WithRotationTime(24*time.Hour), // 每天切割
+	)
+	defer writer.Close()
 
 	// 设置日志等级
 	level, err := logrus.ParseLevel(l.config.Logger.Level)
@@ -49,6 +51,6 @@ func (l *LogrusImpl) InitLogger() error {
 		logrus.Warn("Unsupported log format, using text as default")
 	}
 
-	logrus.SetOutput(logFile)
+	logrus.SetOutput(writer)
 	return nil
 }
