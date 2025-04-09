@@ -15,7 +15,7 @@ import (
 )
 
 type DockerContainer interface {
-	InContainerRunCode(language string, cmd string, args []string) (float64, string, error)
+	InContainerRunCode(language string, cmd string, args []string) (int64, string, error)
 	GetContains(language string) (container string)
 }
 
@@ -231,7 +231,7 @@ func (c *dockerContainerClient) buildExec(ctx context.Context, cmd, id string, a
 	return outputBuf.String(), nil
 }
 
-func (c *dockerContainerClient) InContainerRunCode(language string, cmd string, args []string) (float64, string, error) {
+func (c *dockerContainerClient) InContainerRunCode(language string, cmd string, args []string) (int64, string, error) {
 	// 设置超时上下文
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -243,7 +243,7 @@ func (c *dockerContainerClient) InContainerRunCode(language string, cmd string, 
 	start := time.Now()
 	result, err := c.buildExec(ctx, cmd, containerOne.ID, args)
 	elapsed := time.Since(start)
-	duration := elapsed.Seconds()
+	duration := elapsed.Milliseconds()
 	if err != nil {
 		if err.Error() == "命令执行超时" {
 			return 0, "", err

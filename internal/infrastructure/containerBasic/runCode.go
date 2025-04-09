@@ -12,7 +12,7 @@ import (
 )
 
 type Container interface {
-	RunCode(request *proto.ExecuteRequest) (duration float64, response proto.ExecuteResponse, err error)
+	RunCode(request *proto.ExecuteRequest) (duration int64, response proto.ExecuteResponse, err error)
 }
 
 type runCode struct {
@@ -143,7 +143,7 @@ func (r *runCode) getCommand(language, path string) (string, []string) {
 	return "", nil
 }
 
-func (r *runCode) runCodeContainer(language, path string) (float64, string, error) {
+func (r *runCode) runCodeContainer(language, path string) (int64, string, error) {
 	cmd, args := r.getCommand(language, path)
 	if cmd == "" {
 		return 0, "", fmt.Errorf("不支持的语言类型: %s", language)
@@ -155,7 +155,7 @@ func (r *runCode) runCodeContainer(language, path string) (float64, string, erro
 	return duration, logContent, nil
 }
 
-func (r *runCode) RunCode(request *proto.ExecuteRequest) (duration float64, response proto.ExecuteResponse, err error) {
+func (r *runCode) RunCode(request *proto.ExecuteRequest) (duration int64, response proto.ExecuteResponse, err error) {
 	response.Id = request.Id
 	response.Uid = request.Uid
 	response.CallBackUrl = request.CallBackUrl
