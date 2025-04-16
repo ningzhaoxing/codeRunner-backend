@@ -33,13 +33,15 @@ func (c *Client) Send(request *proto.ExecuteRequest) error {
 	return nil
 }
 
-func (c *Client) HeartBeat() error {
-	return c.WebsocketClient.HeartBeat()
-}
+//func (c *Client) HeartBeat() error {
+//	return c.WebsocketClient.HeartBeat()
+//}
 
 func (c *Client) GetId() string {
 	return c.id
 }
+
+// 根据响应时间调整负载均衡权重
 
 func (c *Client) Close() error {
 	return c.WebsocketClient.Close()

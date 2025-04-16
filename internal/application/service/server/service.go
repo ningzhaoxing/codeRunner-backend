@@ -28,14 +28,14 @@ func (w *ServiceImpl) Execute(in *proto.ExecuteRequest) error {
 	// 通过负载均衡获取客户端
 	client, err := w.ClientManagerDomain.GetClientByBalance()
 	if err != nil {
-		logrus.Error(fmt.Sprintln("application.server.Send() Execute err=\n", err))
+		logrus.Error(fmt.Sprintln("application.server.CallBackSend() Execute err=\n", err))
 		return err
 	}
 
 	// 将请求数据发送给内网服务器
 	err = client.Send(in)
 	if err != nil {
-		logrus.Error(fmt.Sprintln("application.server.Send() Send err=\n", err))
+		logrus.Error(fmt.Sprintln("application.server.CallBackSend() CallBackSend err=\n", err))
 		return err
 	}
 	return nil
@@ -52,7 +52,7 @@ func (w *ServiceImpl) Run(cli server.WebsocketClient, weight int64) error {
 		return err
 	}
 
-	// 维持连接
+	// 读取客户端消息
 	for {
 		if _, err := client.Read(); err != nil {
 			logrus.Error(fmt.Sprintln("application.server.server.Run() Read() err=\n", err))

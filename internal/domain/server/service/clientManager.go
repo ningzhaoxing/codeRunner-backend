@@ -2,8 +2,8 @@ package service
 
 import (
 	"codeRunner-siwu/internal/domain/server/entity"
-	"codeRunner-siwu/internal/infrastructure/bananceStrategy"
-	"codeRunner-siwu/internal/infrastructure/bananceStrategy/weightedRRBalance"
+	"codeRunner-siwu/internal/infrastructure/balanceStrategy"
+	"codeRunner-siwu/internal/infrastructure/balanceStrategy/weightedRRBalance"
 	"codeRunner-siwu/internal/infrastructure/common/errors"
 	"github.com/sirupsen/logrus"
 	"sync"
@@ -18,10 +18,10 @@ type ClientManagerDomain interface {
 
 type ClientManagerDomainTmpl struct {
 	clients sync.Map
-	bananceStrategy.LoadBalance
+	balanceStrategy.LoadBalance
 }
 
-func NewClientManagerDomainTmpl(strategy bananceStrategy.LoadBalance) *ClientManagerDomainTmpl {
+func NewClientManagerDomainTmpl(strategy balanceStrategy.LoadBalance) *ClientManagerDomainTmpl {
 	return &ClientManagerDomainTmpl{
 		clients:     sync.Map{},
 		LoadBalance: strategy,

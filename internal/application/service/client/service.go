@@ -67,7 +67,7 @@ func (w *ServiceImpl) dail(c config.Config) error {
 func (w *ServiceImpl) send(res *proto.ExecuteResponse, err error) error {
 	// 发送消息
 	if err := w.InnerServerDomain.Send(res, err); err != nil {
-		logrus.Error(fmt.Sprintln("application.client.send() Send err=\n", err))
+		logrus.Error(fmt.Sprintln("application.client.send() CallBackSend err=\n", err))
 		return err
 	}
 	return nil

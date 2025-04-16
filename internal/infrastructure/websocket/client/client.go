@@ -13,9 +13,10 @@ import (
 )
 
 type WebsocketClient interface {
-	Dail(TargetServer) error                  // websocket客户端启动
-	Read() (*proto.ExecuteRequest, error)     // 读取消息
-	Send(*proto.ExecuteResponse, error) error // 发送消息post到调用者
+	Dail(TargetServer) error                          // websocket客户端启动
+	Read() (*proto.ExecuteRequest, error)             // 读取消息
+	CallBackSend(*proto.ExecuteResponse, error) error // 发送消息post到回调url
+	WebsocketSend(any) error                          // 通过websocket发送消息
 	Close() error
 }
 
@@ -64,8 +65,8 @@ func (i *WebsocketClientImpl) Read() (*proto.ExecuteRequest, error) {
 	return msg, nil
 }
 
-// Send 将msg通过post发送到回调url
-func (i *WebsocketClientImpl) Send(msg *proto.ExecuteResponse, err error) error {
+// CallBackSend 将msg通过post发送到回调url
+func (i *WebsocketClientImpl) CallBackSend(msg *proto.ExecuteResponse, err error) error {
 	// 序列化msg
 	if err != nil {
 		msg.Err = err.Error()
@@ -73,25 +74,40 @@ func (i *WebsocketClientImpl) Send(msg *proto.ExecuteResponse, err error) error 
 
 	data, err := json.Marshal(*msg)
 	if err != nil {
-		logrus.Error("infrastructure-websocket-client innerServer Send() 的 json.Marshal err=", err)
+		logrus.Error("infrastructure-websocket-client innerServer CallBackSend() 的 json.Marshal err=", err)
 		return err
 	}
 
 	// 发送msg
 	req, err := http.NewRequest("POST", msg.CallBackUrl, bytes.NewBuffer(data))
 	if err != nil {
-		logrus.Error("infrastructure-websocket-client innerServer Send() 的 client.NewRequest err=", err)
+		logrus.Error("infrastructure-websocket-client innerServer CallBackSend() 的 client.NewRequest err=", err)
 		return err
 	}
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		logrus.Error("infrastructure-websocket-client innerServer Send() 的 client.Do err=", err)
+		logrus.Error("infrastructure-websocket-client innerServer CallBackSend() 的 client.Do err=", err)
 		return err
 	}
 	if resp.StatusCode != 200 {
-		logrus.Error("infrastructure-websocket-client innerServer Send() 的 resp.StatusCode 发送失败", resp.StatusCode)
+		logrus.Error("infrastructure-websocket-client innerServer CallBackSend() 的 resp.StatusCode 发送失败", resp.StatusCode)
 		return errors.ResultSendFail
+	}
+	return nil
+}
+
+func (i *WebsocketClientImpl) WebsocketSend(data any) error {
+	msg, err := json.Marshal(data)
+	if err != nil {
+		logrus.Error("infrastructure-websocket-client innerServer WebsocketSend() 的 json.Marshal err=", err)
+		return err
+	}
+
+	err = i.conn.WriteMessage(websocket.TextMessage, msg)
+	if err != nil {
+		logrus.Error("infrastructure-websocket-client innerServer WebsocketSend() 的 conn.WriteMessage err=", err)
+		return err
 	}
 	return nil
 }

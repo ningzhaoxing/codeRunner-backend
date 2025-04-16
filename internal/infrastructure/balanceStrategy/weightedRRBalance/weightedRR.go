@@ -35,7 +35,7 @@ func (w *WeightedRR) Remove(serverId string) {
 	}
 }
 
-func (w *WeightedRR) UpdateWeight(serverId string, weight int64) {
+func (w *WeightedRR) updateWeight(serverId string, weight int64) {
 	for _, node := range w.nodes {
 		if node.serverId == serverId {
 			// 平滑过渡：保留原有currentWeight的50%
@@ -48,7 +48,7 @@ func (w *WeightedRR) UpdateWeight(serverId string, weight int64) {
 
 func (w *WeightedRR) Next() (*WeightNode, error) {
 	if len(w.nodes) == 0 {
-		logrus.Error("infrastructure-bananceStrategy-weightedRRBalance-weightedRR  Next() 的 err = %v ", errors.NotFoundEffectiveServer)
+		logrus.Error("infrastructure-balanceStrategy-weightedRRBalance-weightedRR  Next() 的 err = %v ", errors.NotFoundEffectiveServer)
 		return nil, errors.NotFoundEffectiveServer
 	}
 
@@ -68,4 +68,8 @@ func (w *WeightedRR) Next() (*WeightNode, error) {
 
 func (w *WeightedRR) Get() (*WeightNode, error) {
 	return w.Next()
+}
+
+func (w *WeightedRR) UpdateWeightByResponseDuration(duration float64) {
+	
 }
