@@ -34,7 +34,7 @@ func (i *InnerServerDomainImpl) RunCode(request *proto.ExecuteRequest) (*proto.E
 	}
 
 	// 将响应时间发送给服务端
-	if err := i.sendResponseDuration(duration); err != nil {
+	if err := i.sendResponseDuration(float64(duration)); err != nil {
 		logrus.Error("domain.client.entity.Service() sendResponseDuration err=", err)
 		return nil, err
 	}
