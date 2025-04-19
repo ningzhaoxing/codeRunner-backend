@@ -82,8 +82,10 @@ func (i *WebsocketClientImpl) CallBackSend(msg *proto.ExecuteResponse, err error
 	req, err := http.NewRequest("POST", msg.CallBackUrl, bytes.NewBuffer(data))
 	if err != nil {
 		logrus.Error("infrastructure-websocket-client innerServer CallBackSend() 的 client.NewRequest err=", err)
+		fmt.Println(err)
 		return err
 	}
+	fmt.Println(data, msg.CallBackUrl)
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
