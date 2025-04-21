@@ -20,10 +20,9 @@ func NewLogrusImpl(config config.Config) *LogrusImpl {
 }
 
 func (l *LogrusImpl) InitLogger() error {
-	// 创建一个文件用于存储日志
 	writer, _ := rotatelogs.New(
-		"/study/log/app-%Y%m%d.log",
-		rotatelogs.WithMaxAge(30*24*time.Hour),    // 保留7天
+		"/coderunner/logs/app-%Y%m%d.log",
+		rotatelogs.WithMaxAge(30*24*time.Hour),    // 保留30天
 		rotatelogs.WithRotationTime(24*time.Hour), // 每天切割
 	)
 	defer writer.Close()

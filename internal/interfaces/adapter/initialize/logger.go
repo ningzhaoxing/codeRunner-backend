@@ -7,7 +7,6 @@ import (
 )
 
 func InitLogger(c *config.Config) error {
-
 	log := logger.NewLogrusImpl(*c)
 
 	err := log.InitLogger()
