@@ -12,16 +12,16 @@ type Logger interface {
 }
 
 type LogrusImpl struct {
-	config config.Config
+	config *config.Config
 }
 
-func NewLogrusImpl(config config.Config) *LogrusImpl {
+func NewLogrusImpl(config *config.Config) *LogrusImpl {
 	return &LogrusImpl{config: config}
 }
 
 func (l *LogrusImpl) InitLogger() error {
 	writer, _ := rotatelogs.New(
-		"/coderunner/logs/app-%Y%m%d.log",
+		"./logs/app-%Y%m%d.log",
 		rotatelogs.WithMaxAge(30*24*time.Hour),    // 保留30天
 		rotatelogs.WithRotationTime(24*time.Hour), // 每天切割
 	)
@@ -34,8 +34,7 @@ func (l *LogrusImpl) InitLogger() error {
 		return err
 	}
 	logrus.SetLevel(level)
-
-	// 设置日志格式
+	//设置日志格式
 	switch l.config.Logger.Format {
 	case "json":
 		logrus.SetFormatter(&logrus.JSONFormatter{
@@ -51,5 +50,7 @@ func (l *LogrusImpl) InitLogger() error {
 	}
 
 	logrus.SetOutput(writer)
+
+	logrus.Println("测试日志条目")
 	return nil
 }
