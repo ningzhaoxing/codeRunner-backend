@@ -25,7 +25,7 @@ RUN go build -o code-runner ./cmd/api
 FROM alpine:latest
 
 WORKDIR /app
-COPY --from=builder --chown=runner /app/code-runner .
+COPY --from=builder --chown=runner /app/code-runner-client .
 COPY --chown=runner configs/dev.yaml ./configs/
 
 ENTRYPOINT ["/app/code-runner-client"]
