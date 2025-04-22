@@ -28,4 +28,4 @@ WORKDIR /app
 COPY --from=builder --chown=runner /app/code-runner .
 COPY --chown=runner configs/dev.yaml ./configs/
 
-ENTRYPOINT ["/app/code-runner"]
+ENTRYPOINT ["/app/code-runner-client"]
