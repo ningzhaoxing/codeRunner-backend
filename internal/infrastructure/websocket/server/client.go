@@ -23,10 +23,6 @@ func NewWebsocketClientImpl(conn *websocket.Conn) *WebsocketClientImpl {
 }
 
 func (c *WebsocketClientImpl) Read() ([]byte, error) {
-	//msg, err := json.Marshal(*request)
-	//if err != nil {
-	//	return nil, err
-	//}
 	_, msg, err := c.conn.ReadMessage()
 	return msg, err
 }

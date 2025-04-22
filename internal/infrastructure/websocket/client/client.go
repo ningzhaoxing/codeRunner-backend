@@ -85,7 +85,7 @@ func (i *WebsocketClientImpl) CallBackSend(msg *proto.ExecuteResponse, err error
 		fmt.Println(err)
 		return err
 	}
-	fmt.Println(data, msg.CallBackUrl)
+	//fmt.Println(data, msg.CallBackUrl)
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -130,6 +130,7 @@ func (i *WebsocketClientImpl) connect() error {
 	// 建立连接
 	//url := "ws://192.168.23.31:7979/ws?weight=1"
 	url := fmt.Sprintf("ws://%s:%s/%s?%s", i.targetServer.host, i.targetServer.port, i.targetServer.path, i.targetServer.rowQuery)
+	
 	conn, _, err := dialer.Dial(url, nil)
 	if err != nil {
 		logrus.Error("内网服务器客户端发起链接失败 err=", err)
