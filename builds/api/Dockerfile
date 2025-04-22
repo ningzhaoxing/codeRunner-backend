@@ -19,7 +19,7 @@ RUN go mod download
 COPY . .
 
 # 构建应用
-RUN go build -o code-runner-client ./cmd/api
+RUN go build -o code-runner-client ./cmd/api/main.go
 
 # 使用轻量级的 alpine 作为最终镜像
 FROM alpine:latest
@@ -28,4 +28,4 @@ WORKDIR /app
 COPY --from=builder --chown=runner /app/code-runner-client .
 COPY --chown=runner configs/dev.yaml ./configs/
 
-ENTRYPOINT ["/app/code-runner-client"]
+CMD ["/app/code-runner-client"]
