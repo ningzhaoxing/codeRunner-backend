@@ -36,13 +36,13 @@ func (c *WebsocketClientImpl) Close() error {
 }
 
 func (c *WebsocketClientImpl) HeartBeat() error {
-	err := c.conn.SetReadDeadline(time.Now().Add(30 * time.Second))
-	if err != nil {
-		return err
-	}
+	//err := c.conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+	//if err != nil {
+	//	return err
+	//}
 
 	c.conn.SetPingHandler(func(string) error {
-		err := c.conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+		err := c.conn.SetReadDeadline(time.Now().Add(15 * time.Second))
 		if err != nil {
 			return err
 		}

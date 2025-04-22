@@ -130,7 +130,7 @@ func (i *WebsocketClientImpl) connect() error {
 	// 建立连接
 	//url := "ws://192.168.23.31:7979/ws?weight=1"
 	url := fmt.Sprintf("ws://%s:%s/%s?%s", i.targetServer.host, i.targetServer.port, i.targetServer.path, i.targetServer.rowQuery)
-	
+
 	conn, _, err := dialer.Dial(url, nil)
 	if err != nil {
 		logrus.Error("内网服务器客户端发起链接失败 err=", err)
@@ -181,7 +181,7 @@ func (i *WebsocketClientImpl) heartBeat() {
 	for {
 		select {
 		case <-ticker.C:
-			if err := i.conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second)); err != nil {
+			if err := i.conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(3*time.Second)); err != nil {
 				logrus.Error("发送心跳失败:", err)
 				if err := i.reconnect(); err != nil {
 					logrus.Error("重连失败，停止心跳检测")
