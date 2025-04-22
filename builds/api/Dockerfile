@@ -19,7 +19,7 @@ RUN go mod download
 COPY . .
 
 # 构建应用
-RUN go build -o code-runner ./cmd/api
+RUN go build -o code-runner-client ./cmd/api
 
 # 使用轻量级的 alpine 作为最终镜像
 FROM alpine:latest
