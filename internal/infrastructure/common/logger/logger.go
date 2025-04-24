@@ -4,6 +4,8 @@ import (
 	"codeRunner-siwu/internal/infrastructure/config"
 	"github.com/lestrrat-go/file-rotatelogs"
 	"github.com/sirupsen/logrus"
+	"log"
+	"os"
 	"time"
 )
 
@@ -20,12 +22,23 @@ func NewLogrusImpl(config *config.Config) *LogrusImpl {
 }
 
 func (l *LogrusImpl) InitLogger() error {
-	writer, _ := rotatelogs.New(
-		"./logs/app-%Y%m%d.log",
-		rotatelogs.WithMaxAge(30*24*time.Hour),    // 保留30天
-		rotatelogs.WithRotationTime(24*time.Hour), // 每天切割
+	// 确保日志目录存在
+	logDir := "./logs"
+	if _, err := os.Stat(logDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(logDir, 0755); err != nil {
+			return err
+		}
+	}
+
+	// 初始化 rotatelogs，检查错误
+	writer, err := rotatelogs.New(
+		logDir+"/app-%Y%m%d.log",
+		rotatelogs.WithMaxAge(30*24*time.Hour),
+		rotatelogs.WithRotationTime(24*time.Hour),
 	)
-	defer writer.Close()
+	if err != nil {
+		log.Fatalf("初始化rotatelogs失败: %v", err)
+	}
 
 	// 设置日志等级
 	level, err := logrus.ParseLevel(l.config.Logger.Level)
@@ -50,7 +63,5 @@ func (l *LogrusImpl) InitLogger() error {
 	}
 
 	logrus.SetOutput(writer)
-
-	logrus.Println("测试日志条目")
 	return nil
 }
