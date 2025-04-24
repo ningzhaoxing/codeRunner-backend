@@ -10,10 +10,12 @@ type WebsocketClient interface {
 	Close() error
 	HeartBeat() error
 	Read() ([]byte, error)
+	IsClosed() bool
 }
 
 type WebsocketClientImpl struct {
-	conn *websocket.Conn
+	conn     *websocket.Conn
+	isClosed bool
 }
 
 func NewWebsocketClientImpl(conn *websocket.Conn) *WebsocketClientImpl {
@@ -32,21 +34,28 @@ func (c *WebsocketClientImpl) Send(msg []byte) error {
 }
 
 func (c *WebsocketClientImpl) Close() error {
-	return c.conn.Close()
+	if !c.IsClosed() {
+		c.isClosed = true
+		err := c.conn.Close()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *WebsocketClientImpl) HeartBeat() error {
-	//err := c.conn.SetReadDeadline(time.Now().Add(30 * time.Second))
-	//if err != nil {
-	//	return err
-	//}
-
 	c.conn.SetPingHandler(func(string) error {
-		err := c.conn.SetReadDeadline(time.Now().Add(15 * time.Second))
+		err := c.conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 		if err != nil {
+			c.Close()
 			return err
 		}
 		return nil
 	})
 	return nil
+}
+
+func (c *WebsocketClientImpl) IsClosed() bool {
+	return c.isClosed
 }

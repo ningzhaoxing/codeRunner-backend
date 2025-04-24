@@ -5,6 +5,8 @@ import (
 	"codeRunner-siwu/internal/infrastructure/balanceStrategy"
 	"codeRunner-siwu/internal/infrastructure/balanceStrategy/weightedRRBalance"
 	"codeRunner-siwu/internal/infrastructure/common/errors"
+	errors2 "errors"
+	"fmt"
 	"github.com/sirupsen/logrus"
 	"sync"
 )
@@ -66,10 +68,22 @@ func (s *ClientManagerDomainTmpl) GetClientByBalance() (*entity.Client, error) {
 		return nil, err
 	}
 
-	client, ok := s.clients.Load(node.GetId())
+	cli, ok := s.clients.Load(node.GetId())
 	if !ok {
 		logrus.Error("domain.server.service.Load() Get err=", errors.NotFoundEffectiveServer)
 		return nil, errors.NotFoundEffectiveServer
 	}
-	return client.(*entity.Client), nil
+
+	// 判断当前客户端是否已被关闭，如果已被关闭，则需要删除该客户端
+	client := cli.(*entity.Client)
+	if client.IsClosed() {
+		err := s.RemoveClient(client.GetId())
+		if err != nil {
+			fmt.Println("客户端被关闭，已被移除")
+			logrus.Error("domain.server.service.Load() Get err=", errors2.New("客户端被关闭，已被移除"))
+			return nil, err
+		}
+	}
+
+	return client, nil
 }
