@@ -23,6 +23,7 @@ func NewLogrusImpl(config *config.Config) *LogrusImpl {
 
 func (l *LogrusImpl) InitLogger() error {
 	// 确保日志目录存在
+	// 确保日志目录存在
 	logDir := "./logs"
 	if _, err := os.Stat(logDir); os.IsNotExist(err) {
 		if err := os.MkdirAll(logDir, 0755); err != nil {
@@ -63,5 +64,7 @@ func (l *LogrusImpl) InitLogger() error {
 	}
 
 	logrus.SetOutput(writer)
+
+	logrus.Println("测试日志条目")
 	return nil
 }
