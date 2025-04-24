@@ -44,3 +44,7 @@ func (c *Client) GetId() string {
 func (c *Client) Close() error {
 	return c.WebsocketClient.Close()
 }
+
+func (c *Client) IsClosed() bool {
+	return c.WebsocketClient.IsClosed()
+}
