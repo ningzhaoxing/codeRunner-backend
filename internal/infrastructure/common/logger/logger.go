@@ -24,7 +24,7 @@ func NewLogrusImpl(config *config.Config) *LogrusImpl {
 
 func (l *LogrusImpl) InitLogger() error {
 	// 确保日志目录存在
-	logDir, err := filepath.Abs("./logs")
+	logDir, err := filepath.Abs("logs") // 修改这里，移除 "./"
 	if err != nil {
 		log.Fatalf("获取日志目录绝对路径失败: %v", err)
 	}
@@ -34,16 +34,19 @@ func (l *LogrusImpl) InitLogger() error {
 		}
 	}
 
+	// 使用 filepath.Join 来构建日志文件路径
+	logPath := filepath.Join(logDir, "app-%Y%m%d.log")
+
 	// 初始化 rotatelogs，检查错误
 	writer, err := rotatelogs.New(
-		logDir+"/app-%Y%m%d.log",
+		logPath,
 		rotatelogs.WithMaxAge(30*24*time.Hour),
 		rotatelogs.WithRotationTime(24*time.Hour),
 	)
 	if err != nil {
 		log.Fatalf("初始化rotatelogs失败: %v", err)
 	}
-	log.Printf("rotatelogs 初始化成功，日志文件路径: %s", logDir+"/app-%Y%m%d.log")
+	log.Printf("rotatelogs 初始化成功，日志文件路径: %s", logPath)
 
 	// 设置日志等级
 	level, err := logrus.ParseLevel(l.config.Logger.Level)
