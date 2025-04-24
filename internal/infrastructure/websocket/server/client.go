@@ -46,7 +46,7 @@ func (c *WebsocketClientImpl) Close() error {
 
 func (c *WebsocketClientImpl) HeartBeat() error {
 	c.conn.SetPingHandler(func(string) error {
-		err := c.conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+		err := c.conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 		if err != nil {
 			c.Close()
 			return err

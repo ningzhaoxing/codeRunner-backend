@@ -162,7 +162,7 @@ func (i *WebsocketClientImpl) heartBeat() {
 	for {
 		select {
 		case <-ticker.C:
-			if err := i.conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second)); err != nil {
+			if err := i.conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(1*time.Second)); err != nil {
 				logrus.Error("发送心跳失败:", err)
 				if err := i.reconnect(); err != nil {
 					logrus.Error("重连失败，停止心跳检测")
