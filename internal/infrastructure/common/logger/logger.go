@@ -6,6 +6,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -23,8 +24,10 @@ func NewLogrusImpl(config *config.Config) *LogrusImpl {
 
 func (l *LogrusImpl) InitLogger() error {
 	// 确保日志目录存在
-	// 确保日志目录存在
-	logDir := "./logs"
+	logDir, err := filepath.Abs("./logs")
+	if err != nil {
+		log.Fatalf("获取日志目录绝对路径失败: %v", err)
+	}
 	if _, err := os.Stat(logDir); os.IsNotExist(err) {
 		if err := os.MkdirAll(logDir, 0755); err != nil {
 			return err
@@ -40,6 +43,7 @@ func (l *LogrusImpl) InitLogger() error {
 	if err != nil {
 		log.Fatalf("初始化rotatelogs失败: %v", err)
 	}
+	log.Printf("rotatelogs 初始化成功，日志文件路径: %s", logDir+"/app-%Y%m%d.log")
 
 	// 设置日志等级
 	level, err := logrus.ParseLevel(l.config.Logger.Level)
@@ -64,6 +68,7 @@ func (l *LogrusImpl) InitLogger() error {
 	}
 
 	logrus.SetOutput(writer)
+	log.Println("日志输出设置成功")
 
 	logrus.Println("测试日志条目")
 	return nil
