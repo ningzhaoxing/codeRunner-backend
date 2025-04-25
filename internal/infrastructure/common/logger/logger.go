@@ -20,15 +20,16 @@ func NewLogrusImpl(config *config.Config) *LogrusImpl {
 }
 
 func (l *LogrusImpl) InitLogger() error {
-
-	// 设置日志等级
-	level, err := logrus.ParseLevel(l.config.Logger.Level)
+	// 解析配置文件中的日志等级
+	logLevel, err := logrus.ParseLevel(l.config.Logger.Level)
 	if err != nil {
-		logrus.Fatal("Invalid log level", err)
+		logrus.Fatalf("Invalid log level: %v", err)
 		return err
 	}
-	logrus.SetLevel(level)
-	//设置日志格式
+	// 设置日志等级
+	logrus.SetLevel(logLevel)
+
+	// 根据配置文件设置日志格式
 	switch l.config.Logger.Format {
 	case "json":
 		logrus.SetFormatter(&logrus.JSONFormatter{
@@ -41,14 +42,19 @@ func (l *LogrusImpl) InitLogger() error {
 		})
 	default:
 		logrus.Warn("Unsupported log format, using text as default")
+		logrus.SetFormatter(&logrus.TextFormatter{
+			FullTimestamp:   true,
+			TimestampFormat: "2006-01-02 15:04:05",
+		})
 	}
-	//writer, err := l.getLogWriter("./logs", "codeRunner-client")
-	//if err != nil {
-	//	return fmt.Errorf("failed to get log writer: %w", err)
-	//}
+
+	// 初始化日志输出，这里仅输出到标准输出
 	mw := io.MultiWriter(os.Stdout)
 	logrus.SetOutput(mw)
+
+	// 输出测试日志信息
 	logrus.Println("hshsh")
+
 	return nil
 }
 
