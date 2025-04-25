@@ -51,7 +51,6 @@ func RunServer() {
 
 func RunClient() {
 	// 初始化配置
-	fmt.Println("1111111111111111111111111111")
 	c, err := InitConfig()
 	if err != nil {
 		panic("配置文件解析错误" + err.Error())
