@@ -2,96 +2,116 @@ package logger
 
 import (
 	"codeRunner-siwu/internal/infrastructure/config"
-	"github.com/sirupsen/logrus"
-	"io"
+	"errors"
+	"fmt"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"log"
 	"os"
+	"path/filepath"
+	"time"
 )
 
 type Logger interface {
 	InitLogger() error
 }
 
-type LogrusImpl struct {
+type ZapImpl struct {
 	config *config.Config
 }
 
-func NewLogrusImpl(config *config.Config) *LogrusImpl {
-	return &LogrusImpl{config: config}
+func NewZapImpl(config *config.Config) *ZapImpl {
+	return &ZapImpl{config: config}
 }
 
-func (l *LogrusImpl) InitLogger() error {
-	// 解析配置文件中的日志等级
-	logLevel, err := logrus.ParseLevel(l.config.Logger.Level)
-	if err != nil {
-		logrus.Fatalf("Invalid log level: %v", err)
-		return err
-	}
-	// 设置日志等级
-	logrus.SetLevel(logLevel)
+func (l *ZapImpl) InitLogger() error {
+	//fmt.Printf("LogPath: %s, AppName: %s, Level: %d\n", LogPath, AppName, Level)
+	writeSyncer := l.getLogWriter("logs", "coderunner")
 
-	// 根据配置文件设置日志格式
-	switch l.config.Logger.Format {
-	case "json":
-		logrus.SetFormatter(&logrus.JSONFormatter{
-			TimestampFormat: "2006-01-02 15:04:05",
-		})
-	case "text":
-		logrus.SetFormatter(&logrus.TextFormatter{
-			FullTimestamp:   true,
-			TimestampFormat: "2006-01-02 15:04:05",
-		})
-	default:
-		logrus.Warn("Unsupported log format, using text as default")
-		logrus.SetFormatter(&logrus.TextFormatter{
-			FullTimestamp:   true,
-			TimestampFormat: "2006-01-02 15:04:05",
-		})
+	encoder := l.getEncoder()
+	level := l.getLevel(l.config.Logger.Level)
+	// 控制台输出
+	consoleCore := zapcore.NewCore(encoder, zapcore.AddSync(zapcore.Lock(os.Stdout)), level)
+
+	var core zapcore.Core
+	if writeSyncer != nil {
+		// 文件输出
+		fileCore := zapcore.NewCore(encoder, writeSyncer, level)
+		core = zapcore.NewTee(consoleCore, fileCore)
+	} else {
+		core = consoleCore
+		fmt.Println("文件日志初始化失败，仅使用控制台输出")
+		return errors.New("文件日志初始化失败，仅使用控制台输出")
 	}
 
-	// 初始化日志输出，这里仅输出到标准输出
-	mw := io.MultiWriter(os.Stdout)
-	logrus.SetOutput(mw)
-
-	// 输出测试日志信息
-	logrus.Println("hshsh")
-
+	logger := zap.New(core, zap.AddCaller())
+	zap.ReplaceGlobals(logger)
+	// 替换全局log输出（新增部分）
+	stdLog := zap.NewStdLog(logger)
+	log.SetFlags(0) // 去掉标准库的时间前缀
+	log.SetOutput(stdLog.Writer())
 	return nil
 }
 
-// getLogWriter 获取日志写入器
-//func (l *LogrusImpl) getLogWriter(logPath, appName string) (io.Writer, error) {
-//	if logPath == "" {
-//		return nil, fmt.Errorf("logPath is empty")
-//	}
-//
-//	// 转换为绝对路径（避免相对路径的歧义）
-//	absLogPath, err := filepath.Abs(logPath)
-//	if err != nil {
-//		logrus.Errorf("解析日志路径失败: %v", err)
-//		return nil, fmt.Errorf("解析日志路径失败: %w", err)
-//	}
-//
-//	// 创建目录（确保权限为 0755）
-//	if err := os.MkdirAll(absLogPath, 0755); err != nil {
-//		logrus.Errorf("创建日志目录失败: %v", err)
-//		return nil, fmt.Errorf("创建日志目录失败: %w", err)
-//	}
-//
-//	// 关键点：使用双重转义生成时间占位符
-//	fileNamePattern := fmt.Sprintf("%s/%s-%%Y-%%m-%%d.log", absLogPath, appName)
-//	linkName := fmt.Sprintf("%s/%s-current.log", absLogPath, appName)
-//
-//	// 创建 rotatelogs 实例
-//	writer, err := rotatelogs.New(
-//		fileNamePattern,
-//		rotatelogs.WithLinkName(linkName),         // 符号链接
-//		rotatelogs.WithRotationTime(24*time.Hour), // 每天切割
-//		rotatelogs.WithMaxAge(30*24*time.Hour),    // 保留30天
-//	)
-//	if err != nil {
-//		logrus.Errorf("创建rotatelogs失败: %v", err)
-//		return nil, fmt.Errorf("创建rotatelogs失败: %w", err)
-//	}
-//
-//	return writer, nil
-//}
+func (l *ZapImpl) getLevel(level string) zapcore.Level {
+	switch level {
+	case "debug":
+		return zapcore.DebugLevel
+	case "info":
+		return zapcore.InfoLevel
+	case "warn":
+		return zapcore.WarnLevel
+	case "error":
+		return zapcore.ErrorLevel
+	default:
+		return zapcore.InfoLevel
+	}
+}
+
+func (l *ZapImpl) getEncoder() zapcore.Encoder {
+	encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig.EncodeTime = l.customTimeEncoder
+	encoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder // 添加彩色编码
+	return zapcore.NewConsoleEncoder(encoderConfig)              // 改用Console编码器
+}
+func (l *ZapImpl) getLogWriter(logPath, appName string) zapcore.WriteSyncer {
+	if appName == "" {
+		appName = "default"
+	}
+
+	if logPath != "" {
+		if err := os.MkdirAll(logPath, os.ModePerm); err != nil {
+			fmt.Printf("创建日志目录失败: %v\n", err)
+			return nil
+		}
+	}
+
+	currentDate := time.Now().Format("2006-01-02")
+	fileName := filepath.Join(logPath, fmt.Sprintf("%s-%s.log", appName, currentDate))
+	file, err := os.OpenFile(fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Printf("创建日志文件失败: %v\n", err)
+		return nil
+	}
+	return zapcore.AddSync(file)
+}
+
+func (l *ZapImpl) customTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+	zoneName, offset := t.Zone()
+	offsetHours := offset / 3600
+
+	var zoneStr string
+	switch offsetHours {
+	case 8:
+		zoneStr = "东八区"
+	case 7:
+		zoneStr = "东七区"
+	case -8:
+		zoneStr = "西八区"
+	default:
+		zoneStr = fmt.Sprintf("%s%+d", zoneName, offsetHours)
+	}
+
+	timeStr := t.Format("2006年1月2日 15时04分05秒") + t.Format(".000")[1:] + "毫秒 " + zoneStr
+	enc.AppendString(timeStr)
+}
