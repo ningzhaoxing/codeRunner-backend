@@ -2,11 +2,11 @@ package logger
 
 import (
 	"codeRunner-siwu/internal/infrastructure/config"
+	"fmt"
 	"github.com/lestrrat-go/file-rotatelogs"
 	"github.com/sirupsen/logrus"
-	"log"
+	"io"
 	"os"
-	"path/filepath"
 	"time"
 )
 
@@ -23,30 +23,6 @@ func NewLogrusImpl(config *config.Config) *LogrusImpl {
 }
 
 func (l *LogrusImpl) InitLogger() error {
-	// 确保日志目录存在
-	logDir, err := filepath.Abs("logs") // 修改这里，移除 "./"
-	if err != nil {
-		log.Fatalf("获取日志目录绝对路径失败: %v", err)
-	}
-	if _, err := os.Stat(logDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(logDir, 0755); err != nil {
-			return err
-		}
-	}
-
-	// 使用 filepath.Join 来构建日志文件路径
-	logPath := filepath.Join(logDir, "app-%Y%m%d.log")
-
-	// 初始化 rotatelogs，检查错误
-	writer, err := rotatelogs.New(
-		logPath,
-		rotatelogs.WithMaxAge(30*24*time.Hour),
-		rotatelogs.WithRotationTime(24*time.Hour),
-	)
-	if err != nil {
-		log.Fatalf("初始化rotatelogs失败: %v", err)
-	}
-	log.Printf("rotatelogs 初始化成功，日志文件路径: %s", logPath)
 
 	// 设置日志等级
 	level, err := logrus.ParseLevel(l.config.Logger.Level)
@@ -69,10 +45,37 @@ func (l *LogrusImpl) InitLogger() error {
 	default:
 		logrus.Warn("Unsupported log format, using text as default")
 	}
-
+	writer, err := l.getLogWriter("./logs", "codeRunner-client")
+	if err != nil {
+		return fmt.Errorf("failed to get log writer: %w", err)
+	}
 	logrus.SetOutput(writer)
-	log.Println("日志输出设置成功")
-
-	logrus.Println("测试日志条目")
+	logrus.Println("hshsh")
 	return nil
+}
+
+// getLogWriter 获取日志写入器
+func (l *LogrusImpl) getLogWriter(logPath, appName string) (io.Writer, error) {
+	if logPath == "" {
+		return nil, fmt.Errorf("logPath is empty")
+	}
+
+	// 确保日志目录存在
+	if err := os.MkdirAll(logPath, os.ModePerm); err != nil {
+		return nil, fmt.Errorf("failed to create log directory: %w", err)
+	}
+
+	// 创建按日期分割的日志文件
+	currentDate := time.Now().Format("2006-01-02")
+	fileName := fmt.Sprintf("%s/%s-%s.log", logPath, appName, currentDate)
+	writer, err := rotatelogs.New(
+		fileName,
+		rotatelogs.WithMaxAge(30*24*time.Hour),    // 保留30天
+		rotatelogs.WithRotationTime(24*time.Hour), // 每天切割
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create rotatelogs writer: %w", err)
+	}
+
+	return writer, nil
 }
