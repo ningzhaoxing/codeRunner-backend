@@ -7,6 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"io"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -61,23 +62,33 @@ func (l *LogrusImpl) getLogWriter(logPath, appName string) (io.Writer, error) {
 		return nil, fmt.Errorf("logPath is empty")
 	}
 
-	// 确保日志目录存在
-	if err := os.MkdirAll(logPath, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create log directory: %w", err)
+	// 转换为绝对路径（避免相对路径的歧义）
+	absLogPath, err := filepath.Abs(logPath)
+	if err != nil {
+		logrus.Errorf("解析日志路径失败: %v", err)
+		return nil, fmt.Errorf("解析日志路径失败: %w", err)
 	}
 
-	// 创建按日期分割的日志文件
-	currentDate := time.Now().Format("2006-01-02")
-	fileName := fmt.Sprintf("%s/%s-%s.log", logPath, appName, currentDate)
-	fmt.Printf("Log file name: %s\n", fileName) // 添加调试信息
+	// 创建目录（确保权限为 0755）
+	if err := os.MkdirAll(absLogPath, 0755); err != nil {
+		logrus.Errorf("创建日志目录失败: %v", err)
+		return nil, fmt.Errorf("创建日志目录失败: %w", err)
+	}
 
+	// 关键点：使用双重转义生成时间占位符
+	fileNamePattern := fmt.Sprintf("%s/%s-%%Y-%%m-%%d.log", absLogPath, appName)
+	linkName := fmt.Sprintf("%s/%s-current.log", absLogPath, appName)
+
+	// 创建 rotatelogs 实例
 	writer, err := rotatelogs.New(
-		fileName,
-		rotatelogs.WithMaxAge(30*24*time.Hour),    // 保留30天
+		fileNamePattern,
+		rotatelogs.WithLinkName(linkName),         // 符号链接
 		rotatelogs.WithRotationTime(24*time.Hour), // 每天切割
+		rotatelogs.WithMaxAge(30*24*time.Hour),    // 保留30天
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create rotatelogs writer: %w", err)
+		logrus.Errorf("创建rotatelogs失败: %v", err)
+		return nil, fmt.Errorf("创建rotatelogs失败: %w", err)
 	}
 
 	return writer, nil
