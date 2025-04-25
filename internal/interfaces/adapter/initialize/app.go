@@ -3,7 +3,6 @@ package initialize
 import (
 	"context"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
 	"log"
 )
@@ -52,6 +51,7 @@ func RunServer() {
 
 func RunClient() {
 	// 初始化配置
+	fmt.Println("1111111111111111111111111111")
 	c, err := InitConfig()
 	if err != nil {
 		panic("配置文件解析错误" + err.Error())
@@ -64,9 +64,6 @@ func RunClient() {
 		panic("日志文件解析错误" + err.Error())
 		return
 	}
-
-	logrus.Info("1111111111")
-
 	srv, err := clientServiceRegister()
 	if err != nil {
 		panic("服务注册失败,原因:" + err.Error())
