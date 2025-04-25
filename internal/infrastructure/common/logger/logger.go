@@ -49,7 +49,8 @@ func (l *LogrusImpl) InitLogger() error {
 	if err != nil {
 		return fmt.Errorf("failed to get log writer: %w", err)
 	}
-	logrus.SetOutput(writer)
+	mw := io.MultiWriter(os.Stdout, writer)
+	logrus.SetOutput(mw)
 	logrus.Println("hshsh")
 	return nil
 }
@@ -61,13 +62,15 @@ func (l *LogrusImpl) getLogWriter(logPath, appName string) (io.Writer, error) {
 	}
 
 	// 确保日志目录存在
-	if err := os.MkdirAll(logPath, os.ModePerm); err != nil {
+	if err := os.MkdirAll(logPath, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create log directory: %w", err)
 	}
 
 	// 创建按日期分割的日志文件
 	currentDate := time.Now().Format("2006-01-02")
 	fileName := fmt.Sprintf("%s/%s-%s.log", logPath, appName, currentDate)
+	fmt.Printf("Log file name: %s\n", fileName) // 添加调试信息
+
 	writer, err := rotatelogs.New(
 		fileName,
 		rotatelogs.WithMaxAge(30*24*time.Hour),    // 保留30天
