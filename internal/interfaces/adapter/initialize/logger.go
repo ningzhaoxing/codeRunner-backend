@@ -7,7 +7,7 @@ import (
 )
 
 func InitLogger(c *config.Config) error {
-	log := logger.NewLogrusImpl(c)
+	log := logger.NewZapImpl(c)
 
 	err := log.InitLogger()
 
