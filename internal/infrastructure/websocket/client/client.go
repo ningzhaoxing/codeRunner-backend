@@ -33,7 +33,7 @@ type WebsocketClientImpl struct {
 func NewWebsocketClientImpl() *WebsocketClientImpl {
 	return &WebsocketClientImpl{
 		handshakeTimeout: 10 * time.Second,
-		pingPeriod:       10 * time.Second,
+		pingPeriod:       2 * time.Second,
 		pongWait:         60 * time.Second,
 		stopPingCh:       make(chan struct{}),
 		reconnectWait:    10 * time.Second,
@@ -181,6 +181,7 @@ func (i *WebsocketClientImpl) heartBeat() {
 	for {
 		select {
 		case <-ticker.C:
+			fmt.Println("发送心跳检测")
 			if err := i.conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(3*time.Second)); err != nil {
 				logrus.Error("发送心跳失败:", err)
 				if err := i.reconnect(); err != nil {
