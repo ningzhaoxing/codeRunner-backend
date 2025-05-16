@@ -40,7 +40,6 @@ func (w *ServiceImpl) Run(c config.Config) error {
 		res, err := w.RunCode(msg)
 		if err != nil {
 			logrus.Error(fmt.Sprintln("application.client.Run() Service err=", err))
-			continue
 		}
 		fmt.Println("处理结果为:", res)
 
