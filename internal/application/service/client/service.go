@@ -48,6 +48,7 @@ func (w *ServiceImpl) Run(c config.Config) error {
 			logrus.Error(fmt.Sprintln("application.client.Run() send err=", err))
 			continue
 		}
+		fmt.Println("结果发送成功")
 	}
 }
 
