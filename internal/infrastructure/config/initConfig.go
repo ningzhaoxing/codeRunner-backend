@@ -2,11 +2,12 @@ package config
 
 import (
 	"fmt"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
-var configPath = "./configs/dev.yaml"
+var configPath = "./configs/product.yaml"
 
 type Config struct {
 	Server ServerConfig `yaml:"server"`
