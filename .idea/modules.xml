@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/codeRunner-siwu.iml" filepath="$PROJECT_DIR$/.idea/codeRunner-siwu.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/coderunner.iml" filepath="$PROJECT_DIR$/.idea/coderunner.iml" />
     </modules>
   </component>
 </project>

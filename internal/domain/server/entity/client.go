@@ -2,17 +2,17 @@ package entity
 
 import (
 	"codeRunner-siwu/api/proto"
-	"codeRunner-siwu/internal/infrastructure/websocket/server"
 	"encoding/json"
+
 	"github.com/google/uuid"
 )
 
 type Client struct {
 	id string
-	server.WebsocketClient
+	WebsocketClient
 }
 
-func NewClient(client server.WebsocketClient) *Client {
+func NewClient(client WebsocketClient) *Client {
 	id := uuid.NewString()
 	return &Client{
 		id:              id,
@@ -33,15 +33,9 @@ func (c *Client) Send(request *proto.ExecuteRequest) error {
 	return nil
 }
 
-//func (c *Client) HeartBeat() error {
-//	return c.WebsocketClient.HeartBeat()
-//}
-
 func (c *Client) GetId() string {
 	return c.id
 }
-
-// 根据响应时间调整负载均衡权重
 
 func (c *Client) Close() error {
 	return c.WebsocketClient.Close()
@@ -49,4 +43,12 @@ func (c *Client) Close() error {
 
 func (c *Client) IsClosed() bool {
 	return c.WebsocketClient.IsClosed()
+}
+
+type WebsocketClient interface {
+	Send([]byte) error
+	Close() error
+	HeartBeat() error
+	Read() ([]byte, error)
+	IsClosed() bool
 }

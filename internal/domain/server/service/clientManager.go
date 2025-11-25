@@ -2,28 +2,21 @@ package service
 
 import (
 	"codeRunner-siwu/internal/domain/server/entity"
-	"codeRunner-siwu/internal/infrastructure/balanceStrategy"
 	"codeRunner-siwu/internal/infrastructure/balanceStrategy/weightedRRBalance"
 	"codeRunner-siwu/internal/infrastructure/common/errors"
 	errors2 "errors"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"sync"
-)
 
-type ClientManagerDomain interface {
-	AddClient(*entity.Client, int64)
-	RemoveClient(string) error
-	GetClientByBalance() (*entity.Client, error)
-	GetClientById(id string) (*entity.Client, error)
-}
+	"github.com/sirupsen/logrus"
+)
 
 type ClientManagerDomainTmpl struct {
 	clients sync.Map
-	balanceStrategy.LoadBalance
+	LoadBalance
 }
 
-func NewClientManagerDomainTmpl(strategy balanceStrategy.LoadBalance) *ClientManagerDomainTmpl {
+func NewClientManagerDomainTmpl(strategy LoadBalance) *ClientManagerDomainTmpl {
 	return &ClientManagerDomainTmpl{
 		clients:     sync.Map{},
 		LoadBalance: strategy,
@@ -74,7 +67,6 @@ func (s *ClientManagerDomainTmpl) GetClientByBalance() (*entity.Client, error) {
 		return nil, errors.NotFoundEffectiveServer
 	}
 
-	// 判断当前客户端是否已被关闭，如果已被关闭，则需要删除该客户端
 	client := cli.(*entity.Client)
 	if client.IsClosed() {
 		err := s.RemoveClient(client.GetId())
@@ -86,4 +78,10 @@ func (s *ClientManagerDomainTmpl) GetClientByBalance() (*entity.Client, error) {
 	}
 
 	return client, nil
+}
+
+type LoadBalance interface {
+	Add(*weightedRRBalance.WeightNode)
+	Get() (*weightedRRBalance.WeightNode, error)
+	Remove(string)
 }

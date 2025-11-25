@@ -14,7 +14,7 @@ type apiGroup struct {
 
 var APIs *apiGroup
 
-func InitSrbInject(codeRunnerSrv serverAppSrv.Service, authSrv authAppSrv.Service) {
+func InitSrbInject(codeRunnerSrv serverAppSrv.ServerService, authSrv authAppSrv.Service) {
 	APIs = &apiGroup{
 		CodeRunnerSrv: server.EndpointCtl{Srv: codeRunnerSrv},
 		Auth:          auth.EndpointCtl{Srv: authSrv},

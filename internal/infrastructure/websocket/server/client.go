@@ -1,17 +1,10 @@
 package server
 
 import (
-	"github.com/gorilla/websocket"
 	"time"
-)
 
-type WebsocketClient interface {
-	Send([]byte) error
-	Close() error
-	HeartBeat() error
-	Read() ([]byte, error)
-	IsClosed() bool
-}
+	"github.com/gorilla/websocket"
+)
 
 type WebsocketClientImpl struct {
 	conn     *websocket.Conn

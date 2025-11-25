@@ -2,10 +2,10 @@ package weightedRRBalance
 
 import (
 	"codeRunner-siwu/internal/infrastructure/common/errors"
+
 	"github.com/sirupsen/logrus"
 )
 
-// WeightedRR 权重随机算法
 type WeightedRR struct {
 	nodes       []*WeightNode // 所有的服务实例
 	totalWeight int64
@@ -62,14 +62,13 @@ func (w *WeightedRR) Next() (*WeightNode, error) {
 		}
 	}
 
-	best.curWeight -= w.totalWeight
+	if best != nil {
+		best.curWeight -= w.totalWeight
+	}
+
 	return best, nil
 }
 
 func (w *WeightedRR) Get() (*WeightNode, error) {
 	return w.Next()
-}
-
-func (w *WeightedRR) UpdateWeightByResponseDuration(duration float64) {
-	
 }

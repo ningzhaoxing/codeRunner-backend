@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="ALL" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="a33be4b5-38b2-4638-a077-6d8522743f9f" name="更改" comment="使用线上环境">
+      <change afterPath="$PROJECT_DIR$/.idea/coderunner.iml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/codeRunner-siwu.iml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/builds/api/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/builds/api/Dockerfile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/application/service/server/service.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/application/service/server/service.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/domain/client/entity/innerServer.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/domain/client/entity/innerServer.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/domain/server/entity/client.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/domain/server/entity/client.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/domain/server/service/clientManager.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/domain/server/service/clientManager.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/infrastructure/balanceStrategy/loadBalance.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/infrastructure/balanceStrategy/loadBalance.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/infrastructure/balanceStrategy/weightedRRBalance/weightedRR.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/infrastructure/balanceStrategy/weightedRRBalance/weightedRR.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/infrastructure/websocket/server/client.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/infrastructure/websocket/server/client.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/interfaces/adapter/middleware/interceptor.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/interfaces/adapter/middleware/interceptor.go" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="GOROOT" url="file://$USER_HOME$/go/go1.24.2" />
+  <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="develop" />
+      </map>
+    </option>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitLabMergeRequestFiltersHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPENED&quot;,
+    &quot;assignee&quot;: {
+      &quot;type&quot;: &quot;org.jetbrains.plugins.gitlab.mergerequest.ui.filters.GitLabMergeRequestsFiltersValue.MergeRequestsMemberFilterValue.MergeRequestsAssigneeFilterValue&quot;,
+      &quot;username&quot;: &quot;ningzx&quot;,
+      &quot;fullname&quot;: &quot;宁 赵星&quot;
+    }
+  }
+}</component>
+  <component name="GitLabMergeRequestsSettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;first&quot;: &quot;http://192.168.10.6:9980/ningzx/coderunner.git&quot;,
+    &quot;second&quot;: &quot;2f1ae76f-9d9d-476e-8f7c-8499b9a08546&quot;
+  }
+}</component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 5
+}</component>
+  <component name="ProjectId" id="33DgcWlnqPif3EYn8YOv5gJ9YwJ" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.GoLinterPluginOnboarding&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.GoLinterPluginStorageMigration&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.go.formatter.settings.were.checked&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.go.migrated.go.modules.settings&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.go.modules.go.list.on.any.changes.was.set&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;develop-client&quot;,
+    &quot;go.import.settings.migrated&quot;: &quot;true&quot;,
+    &quot;go.sdk.automatically.set&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/Administrator&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;go.sdk&quot;
+  }
+}</component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-gosdk-f466f9b0953e-3d2cccfc42a2-org.jetbrains.plugins.go.sharedIndexes.bundled-GO-252.25557.189" />
+        <option value="bundled-js-predefined-d6986cc7102b-b598e85cdad2-JavaScript-GO-252.25557.189" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="默认任务">
+      <changelist id="a33be4b5-38b2-4638-a077-6d8522743f9f" name="更改" comment="" />
+      <created>1758857137108</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1758857137108</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="启动服务" />
+    <MESSAGE value="使用线上环境" />
+    <option name="LAST_COMMIT_MESSAGE" value="使用线上环境" />
+  </component>
+  <component name="VgoProject">
+    <settings-migrated>true</settings-migrated>
+  </component>
+</project>

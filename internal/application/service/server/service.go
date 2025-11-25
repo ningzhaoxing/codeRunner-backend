@@ -3,22 +3,21 @@ package server
 import (
 	"codeRunner-siwu/api/proto"
 	"codeRunner-siwu/internal/domain/server/entity"
-	"codeRunner-siwu/internal/domain/server/service"
-	"codeRunner-siwu/internal/infrastructure/websocket/server"
 	"fmt"
+
 	"github.com/sirupsen/logrus"
 )
 
-type Service interface {
+type ServerService interface {
 	Execute(in *proto.ExecuteRequest) error
-	Run(cli server.WebsocketClient, weight int64) error
+	Run(cli WebsocketClient, weight int64) error
 }
 
 type ServiceImpl struct {
-	service.ClientManagerDomain
+	ClientManagerDomain
 }
 
-func NewServiceImpl(clientManagerDomain service.ClientManagerDomain) *ServiceImpl {
+func NewServiceImpl(clientManagerDomain ClientManagerDomain) *ServiceImpl {
 	return &ServiceImpl{
 		ClientManagerDomain: clientManagerDomain,
 	}
@@ -41,7 +40,7 @@ func (w *ServiceImpl) Execute(in *proto.ExecuteRequest) error {
 	return nil
 }
 
-func (w *ServiceImpl) Run(cli server.WebsocketClient, weight int64) error {
+func (w *ServiceImpl) Run(cli WebsocketClient, weight int64) error {
 	// 将http请求的内网服务器客户端加入到服务端的 clientManager
 	client := entity.NewClient(cli)
 	w.ClientManagerDomain.AddClient(client, weight)
@@ -59,4 +58,19 @@ func (w *ServiceImpl) Run(cli server.WebsocketClient, weight int64) error {
 			return err
 		}
 	}
+}
+
+type ClientManagerDomain interface {
+	AddClient(*entity.Client, int64)
+	RemoveClient(string) error
+	GetClientByBalance() (*entity.Client, error)
+	GetClientById(id string) (*entity.Client, error)
+}
+
+type WebsocketClient interface {
+	Send([]byte) error
+	Close() error
+	HeartBeat() error
+	Read() ([]byte, error)
+	IsClosed() bool
 }
