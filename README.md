@@ -1,93 +1,234 @@
-# codeRunner
+# CodeRunner - 分布式代码执行系统
 
+基于 DDD 架构的分布式代码在线运行系统，为博客平台提供代码执行能力。
 
+## 项目简介
 
-## Getting started
+CodeRunner 是一个微服务项目，让读者可以直接在博客平台上运行代码，无需跳转到 IDE。灵感来源于 Online Judge 系统。
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+### 核心特性
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+- 🚀 **分布式架构**: 云服务器调度 + 内网节点执行
+- 🔒 **安全隔离**: Docker 容器沙箱，资源限制
+- ⚖️ **负载均衡**: 基于节点负载的智能调度
+- 📡 **实时通信**: WebSocket + SSE 实时推送结果
+- 🎯 **DDD 架构**: 领域驱动设计，清晰的分层结构
+- 🔄 **服务发现**: ETCD 实现节点注册与发现
 
-## Add your files
+## 系统架构
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+![架构图](image.png)
+
+### 组件说明
 
 ```
-cd existing_repo
-git remote add origin http://192.168.10.6:9980/ningzx/coderunner.git
-git branch -M master
-git push -uf origin master
+┌─────────────────┐
+│  博客系统前端    │ ← 用户提交代码
+└────────┬────────┘
+         │ HTTP + SSE
+┌────────▼────────┐
+│  博客系统后端    │
+└────────┬────────┘
+         │ gRPC
+┌────────▼─────────────┐
+│ codeRunner-server    │ ← 腾讯云服务器
+│ (任务调度、客户端管理) │
+└────────┬─────────────┘
+         │ WebSocket
+    ┌────┴────┬────────┐
+    │         │        │
+┌───▼──┐ ┌───▼──┐ ┌───▼──┐
+│Client1│ │Client2│ │Client3│ ← 内网服务器节点
+│(执行) │ │(执行) │ │(执行) │   (实际运行代码)
+└───────┘ └───────┘ └───────┘
 ```
 
-## Integrate with your tools
+### 通信机制
 
-- [ ] [Set up project integrations](http://192.168.10.6/ningzx/coderunner/-/settings/integrations)
+| 通信路径 | 协议 | 用途 |
+|---------|------|------|
+| 博客后端 → codeRunner-server | gRPC | 同步提交任务 |
+| codeRunner-server → codeRunner-client | WebSocket | 双向实时通信 |
+| codeRunner-server → 博客后端 | 异步回调 | 推送执行结果 |
+| 博客后端 → 前端 | SSE | 服务器推送 |
 
-## Collaborate with your team
+## 项目结构
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+```
+code-runner/
+├── codeRunner-server/       # 服务端（任务调度）
+│   ├── cmd/server/          # 应用入口
+│   ├── internal/
+│   │   ├── domain/          # 领域层：核心业务逻辑
+│   │   ├── application/     # 应用层：流程编排
+│   │   ├── infrastructure/  # 基础设施层：技术实现
+│   │   └── interfaces/      # 接口层：对外 API
+│   └── README.md
+│
+├── codeRunner-client/       # 客户端（代码执行）
+│   ├── cmd/client/          # 应用入口
+│   ├── internal/
+│   │   ├── domain/          # 领域层：沙箱、执行器
+│   │   ├── application/     # 应用层：客户端主程序
+│   │   └── infrastructure/  # 基础设施层：WebSocket、监控
+│   └── README.md
+│
+├── shared/                  # 共享代码
+│   ├── proto/               # gRPC protobuf 定义
+│   ├── types/               # 共享类型定义
+│   └── utils/               # 工具函数
+│
+└── redmine.md              # 详细设计文档（类图、时序图）
+```
 
-## Test and Deploy
+## DDD 分层架构
 
-Use the built-in continuous integration in GitLab.
+### 领域层 (Domain Layer)
+- **职责**: 核心业务逻辑和规则
+- **特点**: 不依赖任何外部框架
+- **内容**: 实体、值对象、领域服务、仓储接口
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+### 应用层 (Application Layer)
+- **职责**: 编排业务流程，协调领域对象
+- **特点**: 无业务逻辑，只做编排
+- **内容**: 应用服务、命令对象、领域事件
 
-***
+### 基础设施层 (Infrastructure Layer)
+- **职责**: 技术实现和外部集成
+- **特点**: 实现领域层定义的接口
+- **内容**: 数据库、消息队列、缓存、外部 API
 
-# Editing this README
+### 接口层 (Interface Layer)
+- **职责**: 对外提供 API
+- **特点**: 转换数据格式，处理协议细节
+- **内容**: HTTP/gRPC 接口实现
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+## 快速开始
 
-## Suggestions for a good README
+### 环境要求
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+**Server 端:**
+- Go 1.21+
+- ETCD 3.5+
+- MySQL 8.0+ / PostgreSQL 14+
 
-## Name
-Choose a self-explaining name for your project.
+**Client 端:**
+- Go 1.21+
+- Docker 24.0+
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+### 启动 Server
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+```bash
+cd codeRunner-server
+go mod tidy
+cd cmd/server
+go run main.go
+```
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+### 启动 Client
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+```bash
+cd codeRunner-client
+go mod tidy
+cd cmd/client
+go run main.go --server-url ws://server:8080/ws
+```
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+## 技术栈
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+| 组件 | 技术 |
+|------|------|
+| 语言 | Go 1.21+ |
+| 架构 | DDD (领域驱动设计) |
+| RPC | gRPC |
+| 实时通信 | WebSocket |
+| 服务发现 | ETCD |
+| 容器化 | Docker |
+| 数据库 | MySQL / PostgreSQL |
+| 消息推送 | SSE |
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+## 核心流程
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+### 代码执行流程
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+```
+1. 用户在博客前端提交代码
+   ↓
+2. 博客后端通过 gRPC 调用 codeRunner-server
+   ↓
+3. codeRunner-server 创建任务并入队
+   ↓
+4. 调度器选择负载最低的 client 节点
+   ↓
+5. 通过 WebSocket 发送任务到 client
+   ↓
+6. client 在 Docker 沙箱中执行代码
+   ↓
+7. client 返回执行结果给 server
+   ↓
+8. server 通过异步回调推送结果给博客后端
+   ↓
+9. 博客后端通过 SSE 推送给前端
+   ↓
+10. 用户看到执行结果
+```
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+### 客户端注册流程
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+```
+1. client 启动，连接 server 的 WebSocket
+   ↓
+2. server 生成 clientId，创建 ClientNode
+   ↓
+3. server 将 client 信息注册到 ETCD
+   ↓
+4. client 定时发送心跳（CPU、内存、任务数）
+   ↓
+5. server 更新 ClientNode 状态
+   ↓
+6. 断线时从 ETCD 注销
+```
+
+## 负载均衡策略
+
+基于以下指标计算节点负载评分：
+
+```go
+loadScore = (0.4 * cpuUsage) +
+            (0.4 * memoryUsage) +
+            (0.2 * runningTasks / maxTasks)
+```
+
+选择评分最低的节点执行任务。
+
+## 安全措施
+
+1. **容器隔离**: 每个任务在独立 Docker 容器中运行
+2. **资源限制**: 严格限制 CPU、内存、执行时间
+3. **网络隔离**: 容器默认无网络访问
+4. **文件隔离**: 容器内无法访问宿主机文件系统
+5. **代码检查**: 提交前进行基本的安全检查
+
+## 文档
+
+- [Server 端架构说明](codeRunner-server/README.md)
+- [Client 端架构说明](codeRunner-client/README.md)
+- [详细设计文档（类图、时序图）](redmine.md)
+
+## 开发规范
+
+1. **遵循 DDD 原则**: 领域层不依赖外部框架
+2. **依赖倒置**: 通过接口定义依赖
+3. **单一职责**: 每个包职责清晰
+4. **测试覆盖**: 核心业务逻辑需要单元测试
+5. **错误处理**: 使用 Go 的错误处理机制，不使用 panic
+
+
+# 新增功能
+
+1. 运行状态监控：将容器运行、代码运行追踪情况上报信息，并记录到监控平台
+2. AI 自动代码补全
 
 ## License
-For open source projects, say how it is licensed.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+MIT License
