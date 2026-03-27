@@ -38,9 +38,14 @@ func (c *WebsocketClientImpl) Close() error {
 }
 
 func (c *WebsocketClientImpl) HeartBeat() error {
-	c.conn.SetPingHandler(func(string) error {
+	c.conn.SetPingHandler(func(appData string) error {
 		err := c.conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 		if err != nil {
+			c.Close()
+			return err
+		}
+		// 回复 Pong，否则客户端认为服务端无响应
+		if err := c.conn.WriteMessage(websocket.PongMessage, []byte(appData)); err != nil {
 			c.Close()
 			return err
 		}
