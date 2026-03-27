@@ -76,10 +76,9 @@ func NewDockerClient() *dockerContainerClient {
 	return &dockerContainerClient
 }
 
-// 确保每个容器都存在
+// ensureContainerExists 检查容器是否存在并运行，容器由 docker-compose 负责创建和配置资源限制
 func (client *dockerContainerClient) ensureContainerExists(language string) *dockerContainerClient {
 	containerName := client.images[language]
-	// 检查容器是否存在
 	args := filters.NewArgs()
 	args.Add("name", containerName)
 
@@ -92,16 +91,17 @@ func (client *dockerContainerClient) ensureContainerExists(language string) *doc
 		return client
 	}
 	if len(containers) == 0 {
-		return client.createContainer(client.images[language], language)
+		// 容器不存在：应通过 docker-compose 启动，不在此处创建
+		client.err = fmt.Errorf("容器 %s 不存在，请先执行 docker-compose up 启动所有 runner 容器", containerName)
+		return client
 	}
-	// 检查容器是否运行中
 	if containers[0].State != "running" {
-		logrus.Info("容器 %s 未运行，正在启动...", containerName)
+		logrus.Infof("容器 %s 未运行，正在启动...", containerName)
 		if err := client.cli.ContainerStart(client.ctx, containers[0].ID, container.StartOptions{}); err != nil {
 			client.err = fmt.Errorf("启动容器失败: %v", err)
 			return client
 		}
-		logrus.Info("容器 %s 已启动", containerName)
+		logrus.Infof("容器 %s 已启动", containerName)
 	}
 	return client
 }
@@ -121,48 +121,6 @@ func (client *dockerContainerClient) createContent() *dockerContainerClient {
 	return client
 }
 
-// CreateContainer 创建指定容器并启动
-func (client *dockerContainerClient) createContainer(image string, language string) *dockerContainerClient {
-	config := &container.Config{
-		Image:      image,
-		User:       "root",
-		WorkingDir: "/app",
-		Cmd:        []string{"sleep", "infinity"}, // 修改启动命令为 sleep
-	}
-	hostConfig := &container.HostConfig{
-		ReadonlyRootfs: false,
-		CapDrop:        []string{"ALL"},
-		NetworkMode:    "none", // 关闭容器网络连接
-		Resources: container.Resources{
-			Memory:     512 * 1024 * 1024,
-			MemorySwap: 512 * 1024 * 1024,
-			CPUQuota:   100000,
-			CPUPeriod:  100000,
-			CPUCount:   1,
-		},
-		Binds: []string{fmt.Sprintf("/tmp/%s:/app", language)}, // 挂载到容器的/app目录
-	}
-	resp, err := client.cli.ContainerCreate(
-		client.ctx,
-		config,
-		hostConfig,
-		nil,
-		nil,
-		image,
-	)
-	if err != nil {
-		logrus.Error("domain.client.entity.createContainer() ContainerCreate err=", err)
-		client.err = err
-		return client
-	}
-	// 启动容器
-	if err := client.cli.ContainerStart(client.ctx, resp.ID, container.StartOptions{}); err != nil {
-		logrus.Error("启动容器失败: %v", err)
-		client.err = err
-		return client
-	}
-	return client
-}
 
 func (c *dockerContainerClient) buildExec(ctx context.Context, cmd, id string, args []string) (string, error) {
 	// 1. 创建exec配置

@@ -12,38 +12,88 @@ services:
       - APP_ENV=dev
       - DOCKER_HOST=unix:///var/run/docker.sock
 
-  # 以下服务仅用于构建镜像，不自动运行
-  go-runner:
+  # Runner 容器：长期运行，由 docker-compose 统一管理资源限制
+  code-runner-go:
     image: code-runner-go:latest
     build:
       context: .
       dockerfile: builds/runners/go.Dockerfile
-    profiles: ["build-only"]
+    container_name: code-runner-go
+    command: sleep infinity
+    restart: unless-stopped
+    network_mode: none
+    cap_drop:
+      - ALL
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: "1.0"
+    volumes:
+      - /tmp/golang:/app
 
-  python-runner:
+  code-runner-python:
     image: code-runner-python:latest
     build:
       context: .
       dockerfile: builds/runners/python.Dockerfile
-    profiles: ["build-only"]
+    container_name: code-runner-python
+    command: sleep infinity
+    restart: unless-stopped
+    network_mode: none
+    cap_drop:
+      - ALL
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: "1.0"
+    volumes:
+      - /tmp/python:/app
 
-  cpp-runner:
+  code-runner-cpp:
     image: code-runner-cpp:latest
     build:
       context: .
       dockerfile: builds/runners/cpp.Dockerfile
-    profiles: ["build-only"]
+    container_name: code-runner-cpp
+    command: sleep infinity
+    restart: unless-stopped
+    network_mode: none
+    cap_drop:
+      - ALL
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: "1.0"
+    volumes:
+      - /tmp/c:/app
 
-  java-runner:
+  code-runner-java:
     image: code-runner-java:latest
     build:
       context: .
       dockerfile: builds/runners/java.Dockerfile
-    profiles: ["build-only"]
+    container_name: code-runner-java
+    command: sleep infinity
+    restart: unless-stopped
+    network_mode: none
+    cap_drop:
+      - ALL
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: "1.0"
+    volumes:
+      - /tmp/java:/app
 
-  js-runner:
+  code-runner-js:
     image: code-runner-js:latest
     build:
       context: .
       dockerfile: builds/runners/js.Dockerfile
-    profiles: [ "build-only" ]
+    container_name: code-runner-js
+    command: sleep infinity
+    restart: unless-stopped
+    network_mode: none
+    cap_drop:
+      - ALL
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: "1.0"
+    volumes:
+      - /tmp/javascript:/app
