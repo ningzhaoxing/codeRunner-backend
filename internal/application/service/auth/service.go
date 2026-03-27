@@ -4,7 +4,7 @@ import (
 	"codeRunner-siwu/api/proto"
 	"codeRunner-siwu/internal/infrastructure/common/token"
 	"fmt"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type Service interface {
@@ -22,7 +22,7 @@ func NewService(token token.TokenIssuer) *ServiceImpl {
 func (t *ServiceImpl) GenerateToken(request *proto.GenerateTokenRequest) (response *proto.GenerateTokenResponse, err error) {
 	response, err = t.TokenIssuer.Public(request)
 	if err != nil {
-		logrus.Error(fmt.Sprintln("application.service.GenerateToken() Public err=\n", err))
+		zap.S().Error(fmt.Sprintln("application.service.GenerateToken() Public err=\n", err))
 		return response, err
 	}
 	return response, nil

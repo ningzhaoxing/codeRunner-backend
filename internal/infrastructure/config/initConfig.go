@@ -3,7 +3,7 @@ package config
 import (
 	"fmt"
 
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	"github.com/spf13/viper"
 )
 
@@ -51,12 +51,12 @@ type LoggerConfig struct {
 func LoadConfig(config *Config) error {
 	viper.SetConfigFile(configPath)
 	if err := viper.ReadInConfig(); err != nil {
-		logrus.Error("infrastructure-config LoadConfig()的 viper.ReadInConfig err  %v", err)
+		zap.S().Error("infrastructure-config LoadConfig()的 viper.ReadInConfig err  %v", err)
 		return err
 	}
 
 	if err := viper.Unmarshal(config); err != nil {
-		logrus.Error("infrastructure-config LoadConfig()的 viper.Unmarshal err  %v", err)
+		zap.S().Error("infrastructure-config LoadConfig()的 viper.Unmarshal err  %v", err)
 		return err
 	}
 	fmt.Println(config)

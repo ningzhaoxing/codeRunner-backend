@@ -6,7 +6,7 @@ import (
 	docker "codeRunner-siwu/internal/infrastructure/containerBasic"
 	"codeRunner-siwu/internal/infrastructure/websocket/client"
 
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type InnerServerDomainImpl struct {
@@ -20,7 +20,7 @@ func NewInnerServerDomainImpl(container docker.Container, websocketClient client
 
 func (i *InnerServerDomainImpl) Dail(targetServer client.TargetServer) error {
 	if err := i.WebsocketClient.Dail(targetServer); err != nil {
-		logrus.Error("domain.client.entity.Dail() Dail err=", err)
+		zap.S().Error("domain.client.entity.Dail() Dail err=", err)
 		return err
 	}
 	return nil
@@ -30,13 +30,13 @@ func (i *InnerServerDomainImpl) RunCode(request *proto.ExecuteRequest) (*proto.E
 	// 执行代码
 	duration, response, err := i.Container.RunCode(request)
 	if err != nil {
-		logrus.Error("domain.client.entity.Service() RunCode err=", err)
+		zap.S().Error("domain.client.entity.Service() RunCode err=", err)
 		return nil, err
 	}
 
 	// 将响应时间发送给服务端
 	if err := i.sendResponseDuration(float64(duration)); err != nil {
-		logrus.Error("domain.client.entity.Service() sendResponseDuration err=", err)
+		zap.S().Error("domain.client.entity.Service() sendResponseDuration err=", err)
 		return nil, err
 	}
 	return &response, err
@@ -51,7 +51,7 @@ func (i *InnerServerDomainImpl) sendResponseDuration(duration float64) error {
 func (i *InnerServerDomainImpl) Read() (*proto.ExecuteRequest, error) {
 	msg, err := i.WebsocketClient.Read()
 	if err != nil {
-		logrus.Error("domain.client.entity.Read() WebsocketClient.Read err=", err)
+		zap.S().Error("domain.client.entity.Read() WebsocketClient.Read err=", err)
 		return nil, err
 	}
 	return msg, nil
@@ -59,7 +59,7 @@ func (i *InnerServerDomainImpl) Read() (*proto.ExecuteRequest, error) {
 
 func (i *InnerServerDomainImpl) Send(response *proto.ExecuteResponse, err error) error {
 	if err := i.WebsocketClient.CallBackSend(response, err); err != nil {
-		logrus.Error("domain.client.entity.CallBackSend() WebsocketClient.CallBackSend err=", err)
+		zap.S().Error("domain.client.entity.CallBackSend() WebsocketClient.CallBackSend err=", err)
 		return err
 	}
 	return nil

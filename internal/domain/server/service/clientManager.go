@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 // clientPending 存储某个客户端的在途请求（已发送未收到 ACK）
@@ -54,12 +54,12 @@ func (s *ClientManagerDomainTmpl) AddClient(client *entity.Client, weight int64)
 func (s *ClientManagerDomainTmpl) RemoveClient(id string) error {
 	client, err := s.GetClientById(id)
 	if err != nil {
-		logrus.Error("domain.server.service.RemoveClient() GetClientById err=", err)
+		zap.S().Error("domain.server.service.RemoveClient() GetClientById err=", err)
 		return err
 	}
 
 	if err := client.Close(); err != nil {
-		logrus.Error("domain.server.service.RemoveClient() Close err=", err)
+		zap.S().Error("domain.server.service.RemoveClient() Close err=", err)
 		return err
 	}
 
@@ -71,7 +71,7 @@ func (s *ClientManagerDomainTmpl) RemoveClient(id string) error {
 func (s *ClientManagerDomainTmpl) GetClientById(id string) (*entity.Client, error) {
 	client, ok := s.clients.Load(id)
 	if !ok {
-		logrus.Error("domain.server.service.GetClientById() Load err=", errors.NotFoundEffectiveServer)
+		zap.S().Error("domain.server.service.GetClientById() Load err=", errors.NotFoundEffectiveServer)
 		return nil, errors.NotFoundEffectiveServer
 	}
 	return client.(*entity.Client), nil
@@ -81,7 +81,7 @@ func (s *ClientManagerDomainTmpl) GetClientByBalance() (*entity.Client, error) {
 	for i := 0; i < maxRetryPickClient; i++ {
 		node, err := s.LoadBalancer.Get()
 		if err != nil {
-			logrus.Error("domain.server.service.GetClientByBalance() Get err=", err)
+			zap.S().Error("domain.server.service.GetClientByBalance() Get err=", err)
 			return nil, err
 		}
 
@@ -93,7 +93,7 @@ func (s *ClientManagerDomainTmpl) GetClientByBalance() (*entity.Client, error) {
 
 		client := cli.(*entity.Client)
 		if client.IsClosed() {
-			logrus.Warn("domain.server.service.GetClientByBalance() client closed, removing and retrying, id=", client.GetId())
+			zap.S().Warn("domain.server.service.GetClientByBalance() client closed, removing and retrying, id=", client.GetId())
 			_ = s.RemoveClient(client.GetId())
 			continue
 		}

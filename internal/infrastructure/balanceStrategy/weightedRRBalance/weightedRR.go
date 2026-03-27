@@ -4,7 +4,7 @@ import (
 	"codeRunner-siwu/internal/infrastructure/common/errors"
 	"sync"
 
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type WeightedRR struct {
@@ -65,7 +65,7 @@ func (w *WeightedRR) Next() (*WeightNode, error) {
 	defer w.mu.Unlock()
 
 	if len(w.nodes) == 0 {
-		logrus.Error("infrastructure-balanceStrategy-weightedRRBalance-weightedRR  Next() 的 err = %v ", errors.NotFoundEffectiveServer)
+		zap.S().Error("infrastructure-balanceStrategy-weightedRRBalance-weightedRR  Next() 的 err = %v ", errors.NotFoundEffectiveServer)
 		return nil, errors.NotFoundEffectiveServer
 	}
 

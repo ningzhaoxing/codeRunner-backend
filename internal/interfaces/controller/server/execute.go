@@ -4,7 +4,7 @@ import (
 	"codeRunner-siwu/api/proto"
 	"context"
 
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -18,7 +18,7 @@ func (ctl *EndpointCtl) Execute(ctx context.Context, in *proto.ExecuteRequest) (
 
 	err := ctl.Srv.Execute(in)
 	if err != nil {
-		logrus.Error("interfaces-controller-rpc-execute Execute的 s.Service.Execute err=", err)
+		zap.S().Error("interfaces-controller-rpc-execute Execute的 s.Service.Execute err=", err)
 		return nil, err
 	}
 

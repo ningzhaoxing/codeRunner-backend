@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type ServerService interface {
@@ -27,7 +27,7 @@ func NewServiceImpl(clientManagerDomain ClientManagerDomain) *ServiceImpl {
 func (w *ServiceImpl) Execute(in *proto.ExecuteRequest) error {
 	client, err := w.ClientManagerDomain.GetClientByBalance()
 	if err != nil {
-		logrus.Error(fmt.Sprintln("application.server.Execute() GetClientByBalance err=\n", err))
+		zap.S().Error(fmt.Sprintln("application.server.Execute() GetClientByBalance err=\n", err))
 		return err
 	}
 
@@ -36,7 +36,7 @@ func (w *ServiceImpl) Execute(in *proto.ExecuteRequest) error {
 	w.ClientManagerDomain.Done(client.GetId(), time.Since(start), sendErr)
 
 	if sendErr != nil {
-		logrus.Error(fmt.Sprintln("application.server.Execute() Send err=\n", sendErr))
+		zap.S().Error(fmt.Sprintln("application.server.Execute() Send err=\n", sendErr))
 		return sendErr
 	}
 
@@ -56,21 +56,21 @@ func (w *ServiceImpl) Run(cli WebsocketClient, weight int64) error {
 	w.ClientManagerDomain.AddClient(client, weight)
 
 	if err := client.HeartBeat(); err != nil {
-		logrus.Error(fmt.Sprintln("application.server.Run() HeartBeat err=\n", err))
+		zap.S().Error(fmt.Sprintln("application.server.Run() HeartBeat err=\n", err))
 		return err
 	}
 
 	for {
 		if _, err := client.Read(); err != nil {
-			logrus.Error(fmt.Sprintln("application.server.Run() Read() err=\n", err))
+			zap.S().Error(fmt.Sprintln("application.server.Run() Read() err=\n", err))
 
 			// 断线：取出所有未 ACK 的请求并重新分发
 			pending := w.ClientManagerDomain.DrainPending(client.GetId())
 			if len(pending) > 0 {
-				logrus.Warnf("application.server.Run() client %s disconnected with %d pending requests, redispatching", client.GetId(), len(pending))
+				zap.S().Warnf("application.server.Run() client %s disconnected with %d pending requests, redispatching", client.GetId(), len(pending))
 				for _, req := range pending {
 					if redispatchErr := w.Execute(req); redispatchErr != nil {
-						logrus.Errorf("application.server.Run() redispatch failed for request %s: %v", req.Id, redispatchErr)
+						zap.S().Errorf("application.server.Run() redispatch failed for request %s: %v", req.Id, redispatchErr)
 					}
 				}
 			}

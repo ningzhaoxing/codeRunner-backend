@@ -3,7 +3,7 @@ package initialize
 import (
 	"codeRunner-siwu/internal/infrastructure/common/logger"
 	"codeRunner-siwu/internal/infrastructure/config"
-	"github.com/sirupsen/logrus"
+	"log"
 )
 
 func InitLogger(c *config.Config) error {
@@ -12,7 +12,7 @@ func InitLogger(c *config.Config) error {
 	err := log.InitLogger()
 
 	if err != nil {
-		logrus.Fatal(err)
+		log.Fatal(err)
 		return err
 	}
 	return nil

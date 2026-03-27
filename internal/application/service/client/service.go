@@ -6,7 +6,7 @@ import (
 	"codeRunner-siwu/internal/infrastructure/config"
 	"codeRunner-siwu/internal/infrastructure/websocket/client"
 	"fmt"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type Service interface {
@@ -23,7 +23,7 @@ func NewServiceImpl(innerServerDomainTmpl service.InnerServerDomain) *ServiceImp
 
 func (w *ServiceImpl) Run(c config.Config) error {
 	if err := w.dail(c); err != nil {
-		logrus.Error(fmt.Sprintln("application.client.Run() dail err=", err))
+		zap.S().Error(fmt.Sprintln("application.client.Run() dail err=", err))
 		return err
 	}
 
@@ -31,7 +31,7 @@ func (w *ServiceImpl) Run(c config.Config) error {
 		// 读取消息
 		msg, err := w.InnerServerDomain.Read()
 		if err != nil {
-			logrus.Error(fmt.Sprintln("websocket客户端已被关闭,请重启服务。application.client.Run() Read err=", err))
+			zap.S().Error(fmt.Sprintln("websocket客户端已被关闭,请重启服务。application.client.Run() Read err=", err))
 			return err
 		}
 		fmt.Println("读取到消息:", msg)
@@ -39,13 +39,13 @@ func (w *ServiceImpl) Run(c config.Config) error {
 		// 执行代码
 		res, err := w.RunCode(msg)
 		if err != nil {
-			logrus.Error(fmt.Sprintln("application.client.Run() Service err=", err))
+			zap.S().Error(fmt.Sprintln("application.client.Run() Service err=", err))
 		}
 		fmt.Println("处理结果为:", res)
 
 		// 发送结果
 		if err = w.send(res, err); err != nil {
-			logrus.Error(fmt.Sprintln("application.client.Run() send err=", err))
+			zap.S().Error(fmt.Sprintln("application.client.Run() send err=", err))
 			continue
 		}
 		fmt.Println("结果发送成功")
@@ -58,7 +58,7 @@ func (w *ServiceImpl) dail(c config.Config) error {
 	// 发起websocket连接
 	err := w.InnerServerDomain.Dail(*targetServer)
 	if err != nil {
-		logrus.Error(fmt.Sprintln("application.client.dail() Dail err=\n", err))
+		zap.S().Error(fmt.Sprintln("application.client.dail() Dail err=\n", err))
 		return err
 	}
 	return nil
@@ -67,7 +67,7 @@ func (w *ServiceImpl) dail(c config.Config) error {
 func (w *ServiceImpl) send(res *proto.ExecuteResponse, err error) error {
 	// 发送消息
 	if err := w.InnerServerDomain.Send(res, err); err != nil {
-		logrus.Error(fmt.Sprintln("application.client.send() CallBackSend err=\n", err))
+		zap.S().Error(fmt.Sprintln("application.client.send() CallBackSend err=\n", err))
 		return err
 	}
 	return nil

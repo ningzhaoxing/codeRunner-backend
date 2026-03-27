@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 const (
@@ -106,7 +106,7 @@ func (c *WebsocketClientImpl) HeartBeat() error {
 				return
 			}
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				logrus.Warn("heartbeat ping failed, closing connection: ", err)
+				zap.S().Warn("heartbeat ping failed, closing connection: ", err)
 				c.Close()
 				return
 			}

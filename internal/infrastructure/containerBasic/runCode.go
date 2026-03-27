@@ -4,7 +4,7 @@ import (
 	"codeRunner-siwu/api/proto"
 	"fmt"
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	"log"
 	"os"
 	"path/filepath"
@@ -165,7 +165,7 @@ func (r *runCode) RunCode(request *proto.ExecuteRequest) (duration int64, respon
 	//创建文件
 	err = r.createFile(request.Language, request.CodeBlock, path)
 	if err != nil {
-		logrus.Error(" containerBasic-RunCode-createFile err=", err)
+		zap.S().Error(" containerBasic-RunCode-createFile err=", err)
 		return 0, response, err
 	}
 	//删除目录
@@ -173,7 +173,7 @@ func (r *runCode) RunCode(request *proto.ExecuteRequest) (duration int64, respon
 		r.file.Close()
 		err = os.RemoveAll(r.path)
 		if err != nil {
-			logrus.Error("删除文件夹失败,err=", err)
+			zap.S().Error("删除文件夹失败,err=", err)
 			return
 		}
 	}()

@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	"net/http"
 	"time"
 )
@@ -55,7 +55,7 @@ func (i *WebsocketClientImpl) Dail(targetServer TargetServer) error {
 func (i *WebsocketClientImpl) Read() (*proto.ExecuteRequest, error) {
 	_, m, err := i.conn.ReadMessage()
 	if err != nil {
-		logrus.Error("infrastructure-websocket-client innerServer的Read()  err=", err)
+		zap.S().Error("infrastructure-websocket-client innerServer的Read()  err=", err)
 		return nil, err
 	}
 
@@ -70,7 +70,7 @@ func (i *WebsocketClientImpl) Read() (*proto.ExecuteRequest, error) {
 		RequestID: wsMsg.RequestID,
 	})
 	if writeErr := i.conn.WriteMessage(websocket.TextMessage, ack); writeErr != nil {
-		logrus.Warn("infrastructure-websocket-client Read() send ACK failed: ", writeErr)
+		zap.S().Warn("infrastructure-websocket-client Read() send ACK failed: ", writeErr)
 		// ACK 发送失败不阻塞执行，Server 会在断线时重发
 	}
 
@@ -96,7 +96,7 @@ func (i *WebsocketClientImpl) CallBackSend(msg *proto.ExecuteResponse, err error
 
 	data, err := json.Marshal(*msg)
 	if err != nil {
-		logrus.Error("infrastructure-websocket-client CallBackSend() json.Marshal err=", err)
+		zap.S().Error("infrastructure-websocket-client CallBackSend() json.Marshal err=", err)
 		return err
 	}
 
@@ -104,13 +104,13 @@ func (i *WebsocketClientImpl) CallBackSend(msg *proto.ExecuteResponse, err error
 	for attempt := 0; attempt < callbackMaxRetries; attempt++ {
 		if attempt > 0 {
 			time.Sleep(time.Duration(attempt) * time.Second) // 1s, 2s 退避
-			logrus.Infof("CallBackSend 第 %d 次重试, requestId=%s", attempt, msg.Id)
+			zap.S().Infof("CallBackSend 第 %d 次重试, requestId=%s", attempt, msg.Id)
 		}
 
 		req, err := http.NewRequest("POST", msg.CallBackUrl, bytes.NewBuffer(data))
 		if err != nil {
 			// URL 格式有误，重试无意义
-			logrus.Error("infrastructure-websocket-client CallBackSend() NewRequest err=", err)
+			zap.S().Error("infrastructure-websocket-client CallBackSend() NewRequest err=", err)
 			return err
 		}
 		req.Header.Set("Content-Type", "application/json")
@@ -118,14 +118,14 @@ func (i *WebsocketClientImpl) CallBackSend(msg *proto.ExecuteResponse, err error
 
 		resp, err := callbackHTTPClient.Do(req)
 		if err != nil {
-			logrus.Errorf("infrastructure-websocket-client CallBackSend() Do err=%v (attempt %d)", err, attempt+1)
+			zap.S().Errorf("infrastructure-websocket-client CallBackSend() Do err=%v (attempt %d)", err, attempt+1)
 			lastErr = err
 			continue
 		}
 		resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
-			logrus.Errorf("infrastructure-websocket-client CallBackSend() status=%d (attempt %d)", resp.StatusCode, attempt+1)
+			zap.S().Errorf("infrastructure-websocket-client CallBackSend() status=%d (attempt %d)", resp.StatusCode, attempt+1)
 			lastErr = errors.ResultSendFail
 			continue
 		}
@@ -133,20 +133,20 @@ func (i *WebsocketClientImpl) CallBackSend(msg *proto.ExecuteResponse, err error
 		return nil
 	}
 
-	logrus.Errorf("infrastructure-websocket-client CallBackSend() 重试耗尽，结果丢失 requestId=%s err=%v", msg.Id, lastErr)
+	zap.S().Errorf("infrastructure-websocket-client CallBackSend() 重试耗尽，结果丢失 requestId=%s err=%v", msg.Id, lastErr)
 	return lastErr
 }
 
 func (i *WebsocketClientImpl) WebsocketSend(data any) error {
 	msg, err := json.Marshal(data)
 	if err != nil {
-		logrus.Error("infrastructure-websocket-client innerServer WebsocketSend() 的 json.Marshal err=", err)
+		zap.S().Error("infrastructure-websocket-client innerServer WebsocketSend() 的 json.Marshal err=", err)
 		return err
 	}
 
 	err = i.conn.WriteMessage(websocket.TextMessage, msg)
 	if err != nil {
-		logrus.Error("infrastructure-websocket-client innerServer WebsocketSend() 的 conn.WriteMessage err=", err)
+		zap.S().Error("infrastructure-websocket-client innerServer WebsocketSend() 的 conn.WriteMessage err=", err)
 		return err
 	}
 	return nil
@@ -171,7 +171,7 @@ func (i *WebsocketClientImpl) connect() error {
 
 	conn, _, err := dialer.Dial(url, nil)
 	if err != nil {
-		logrus.Error("内网服务器客户端发起链接失败 err=", err)
+		zap.S().Error("内网服务器客户端发起链接失败 err=", err)
 		return err
 	}
 
@@ -193,18 +193,18 @@ func (i *WebsocketClientImpl) reconnect() error {
 	maxAttempts := 3
 
 	for {
-		logrus.Info("尝试重新连接...")
+		zap.S().Info("尝试重新连接...")
 		err := i.connect()
 		if err == nil {
-			logrus.Info("重连成功")
+			zap.S().Info("重连成功")
 			return nil
 		}
 		maxAttempts--
 		if maxAttempts <= 0 {
-			logrus.Info("重连失败已达%d次，停止重试", maxAttempts)
+			zap.S().Info("重连失败已达%d次，停止重试", maxAttempts)
 			return errors.MaxRetryAttemptsReached
 		}
-		logrus.Error("重连失败: %v, %d秒后重试\n", err, i.reconnectWait/time.Second)
+		zap.S().Error("重连失败: %v, %d秒后重试\n", err, i.reconnectWait/time.Second)
 		time.Sleep(i.reconnectWait)
 	}
 }
@@ -221,9 +221,9 @@ func (i *WebsocketClientImpl) heartBeat() {
 		case <-ticker.C:
 			fmt.Println("发送心跳检测")
 			if err := i.conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(3*time.Second)); err != nil {
-				logrus.Error("发送心跳失败:", err)
+				zap.S().Error("发送心跳失败:", err)
 				if err := i.reconnect(); err != nil {
-					logrus.Error("重连失败，停止心跳检测")
+					zap.S().Error("重连失败，停止心跳检测")
 					return
 				}
 			}

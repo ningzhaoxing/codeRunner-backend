@@ -8,7 +8,7 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	"log"
 	"os"
 	"time"
@@ -96,12 +96,12 @@ func (client *dockerContainerClient) ensureContainerExists(language string) *doc
 		return client
 	}
 	if containers[0].State != "running" {
-		logrus.Infof("容器 %s 未运行，正在启动...", containerName)
+		zap.S().Infof("容器 %s 未运行，正在启动...", containerName)
 		if err := client.cli.ContainerStart(client.ctx, containers[0].ID, container.StartOptions{}); err != nil {
 			client.err = fmt.Errorf("启动容器失败: %v", err)
 			return client
 		}
-		logrus.Infof("容器 %s 已启动", containerName)
+		zap.S().Infof("容器 %s 已启动", containerName)
 	}
 	return client
 }
@@ -112,11 +112,11 @@ func (client *dockerContainerClient) createContent() *dockerContainerClient {
 	for i := 0; i < len(client.language); i++ {
 		tempDir := fmt.Sprintf("/app/tmp/%s", client.language[i])
 		if err := os.MkdirAll(tempDir, 0755); err != nil {
-			logrus.Error("创建目录 %s 失败: %v", tempDir, err)
+			zap.S().Error("创建目录 %s 失败: %v", tempDir, err)
 			client.err = err
 			return client
 		}
-		logrus.Info("创建目录成功: %s", tempDir)
+		zap.S().Info("创建目录成功: %s", tempDir)
 	}
 	return client
 }
@@ -133,14 +133,14 @@ func (c *dockerContainerClient) buildExec(ctx context.Context, cmd, id string, a
 	// 2. 创建exec实例
 	resp, err := c.cli.ContainerExecCreate(ctx, id, execConfig)
 	if err != nil {
-		logrus.Error("创建exec失败: %v", err)
+		zap.S().Error("创建exec失败: %v", err)
 		return "", fmt.Errorf("创建exec失败: %v", err)
 	}
 
 	// 3. 启动exec并获取输出流
 	exec, err := c.cli.ContainerExecAttach(ctx, resp.ID, container.ExecStartOptions{})
 	if err != nil {
-		logrus.Error("启动exec失败: %v", err)
+		zap.S().Error("启动exec失败: %v", err)
 		return "", fmt.Errorf("启动exec失败: %v", err)
 	}
 	defer exec.Close()
@@ -163,27 +163,27 @@ func (c *dockerContainerClient) buildExec(ctx context.Context, cmd, id string, a
 	case <-doneChan:
 		// 正常读取完成
 	case <-ctx.Done():
-		logrus.Error("命令执行超时")
+		zap.S().Error("命令执行超时")
 		return "", fmt.Errorf("命令执行超时")
 	}
 
 	// 6. 处理读取错误
 	if readErr != nil {
-		logrus.Error("读取输出错误: %v", readErr)
+		zap.S().Error("读取输出错误: %v", readErr)
 		return "", readErr
 	}
 	// 7. 获取退出状态
 	inspect, err := c.cli.ContainerExecInspect(ctx, resp.ID)
 	if err != nil {
-		logrus.Error("获取退出状态失败: %v", err)
+		zap.S().Error("获取退出状态失败: %v", err)
 		return "", fmt.Errorf("获取退出状态失败: %v", err)
 	}
 
 	// 8. 根据退出码判断结果
 	if inspect.ExitCode != 0 {
-		logrus.Error("执行失败，退出码: %d", inspect.ExitCode)
+		zap.S().Error("执行失败，退出码: %d", inspect.ExitCode)
 	} else {
-		logrus.Error("执行成功")
+		zap.S().Error("执行成功")
 	}
 	// 打印完整输出
 	return outputBuf.String(), nil
@@ -195,7 +195,7 @@ func (c *dockerContainerClient) InContainerRunCode(language string, cmd string, 
 	defer cancel()
 	containerOne, err := c.cli.ContainerInspect(ctx, c.images[language])
 	if err != nil {
-		logrus.Error("容器ID未找到 err=", err)
+		zap.S().Error("容器ID未找到 err=", err)
 		return 0, "", err
 	}
 	start := time.Now()
