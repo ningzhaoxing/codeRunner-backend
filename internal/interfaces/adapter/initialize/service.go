@@ -6,7 +6,7 @@ import (
 	"codeRunner-siwu/internal/application/service/server"
 	"codeRunner-siwu/internal/domain/client/entity"
 	"codeRunner-siwu/internal/domain/server/service"
-	"codeRunner-siwu/internal/infrastructure/balanceStrategy/weightedRRBalance"
+	"codeRunner-siwu/internal/infrastructure/balanceStrategy/p2cBalance"
 	"codeRunner-siwu/internal/infrastructure/common/token"
 	docker "codeRunner-siwu/internal/infrastructure/containerBasic"
 	client2 "codeRunner-siwu/internal/infrastructure/websocket/client"
@@ -23,7 +23,7 @@ func serverServiceRegister() {
 	// token验证
 	tokenSrv := auth.NewService(tokenImpl)
 	// 负载均衡策略
-	balanceStrategy := weightedRRBalance.NewWeightedRR()
+	balanceStrategy := p2cBalance.NewP2CBalancer()
 	// 客户端manager
 	clientManagerDomain := service.NewClientManagerDomainTmpl(balanceStrategy)
 	// 服务

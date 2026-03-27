@@ -4,6 +4,7 @@ import (
 	"codeRunner-siwu/api/proto"
 	"codeRunner-siwu/internal/domain/server/entity"
 	"fmt"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -27,17 +28,19 @@ func (w *ServiceImpl) Execute(in *proto.ExecuteRequest) error {
 	// 通过负载均衡获取客户端
 	client, err := w.ClientManagerDomain.GetClientByBalance()
 	if err != nil {
-		logrus.Error(fmt.Sprintln("application.server.CallBackSend() Execute err=\n", err))
+		logrus.Error(fmt.Sprintln("application.server.Execute() GetClientByBalance err=\n", err))
 		return err
 	}
 
-	// 将请求数据发送给内网服务器
-	err = client.Send(in)
-	if err != nil {
-		logrus.Error(fmt.Sprintln("application.server.CallBackSend() CallBackSend err=\n", err))
-		return err
+	// 将请求数据发送给内网服务器，并记录发送耗时用于负载均衡反馈
+	start := time.Now()
+	sendErr := client.Send(in)
+	w.ClientManagerDomain.Done(client.GetId(), time.Since(start), sendErr)
+
+	if sendErr != nil {
+		logrus.Error(fmt.Sprintln("application.server.Execute() Send err=\n", sendErr))
 	}
-	return nil
+	return sendErr
 }
 
 func (w *ServiceImpl) Run(cli WebsocketClient, weight int64) error {
@@ -65,6 +68,7 @@ type ClientManagerDomain interface {
 	RemoveClient(string) error
 	GetClientByBalance() (*entity.Client, error)
 	GetClientById(id string) (*entity.Client, error)
+	Done(id string, duration time.Duration, err error)
 }
 
 type WebsocketClient interface {

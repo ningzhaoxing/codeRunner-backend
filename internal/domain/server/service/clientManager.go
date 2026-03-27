@@ -2,30 +2,43 @@ package service
 
 import (
 	"codeRunner-siwu/internal/domain/server/entity"
-	"codeRunner-siwu/internal/infrastructure/balanceStrategy/weightedRRBalance"
 	"codeRunner-siwu/internal/infrastructure/common/errors"
-	errors2 "errors"
-	"fmt"
 	"sync"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
 
-type ClientManagerDomainTmpl struct {
-	clients sync.Map
-	LoadBalance
+const maxRetryPickClient = 3
+
+// BalanceNode 是负载均衡节点的抽象接口
+type BalanceNode interface {
+	GetId() string
 }
 
-func NewClientManagerDomainTmpl(strategy LoadBalance) *ClientManagerDomainTmpl {
+// LoadBalancer 是负载均衡策略接口
+type LoadBalancer interface {
+	Add(id string, weight int64)
+	Get() (BalanceNode, error)
+	Remove(id string)
+	Done(id string, duration time.Duration, err error)
+}
+
+type ClientManagerDomainTmpl struct {
+	clients sync.Map
+	LoadBalancer
+}
+
+func NewClientManagerDomainTmpl(strategy LoadBalancer) *ClientManagerDomainTmpl {
 	return &ClientManagerDomainTmpl{
-		clients:     sync.Map{},
-		LoadBalance: strategy,
+		clients:      sync.Map{},
+		LoadBalancer: strategy,
 	}
 }
 
 func (s *ClientManagerDomainTmpl) AddClient(client *entity.Client, weight int64) {
 	s.clients.Store(client.GetId(), client)
-	s.LoadBalance.Add(weightedRRBalance.NewWeightNode(client.GetId(), weight))
+	s.LoadBalancer.Add(client.GetId(), weight)
 }
 
 func (s *ClientManagerDomainTmpl) RemoveClient(id string) error {
@@ -41,47 +54,46 @@ func (s *ClientManagerDomainTmpl) RemoveClient(id string) error {
 	}
 
 	s.clients.Delete(id)
-	s.LoadBalance.Remove(id)
+	s.LoadBalancer.Remove(id)
 	return nil
 }
 
 func (s *ClientManagerDomainTmpl) GetClientById(id string) (*entity.Client, error) {
 	client, ok := s.clients.Load(id)
 	if !ok {
-		logrus.Error("domain.server.service.RemoveClient() Load err=", errors.NotFoundEffectiveServer)
+		logrus.Error("domain.server.service.GetClientById() Load err=", errors.NotFoundEffectiveServer)
 		return nil, errors.NotFoundEffectiveServer
 	}
 	return client.(*entity.Client), nil
 }
 
 func (s *ClientManagerDomainTmpl) GetClientByBalance() (*entity.Client, error) {
-	node, err := s.LoadBalance.Get()
-	if err != nil {
-		logrus.Error("domain.server.service.GetClientByBalance() Get err=", err)
-		return nil, err
-	}
-
-	cli, ok := s.clients.Load(node.GetId())
-	if !ok {
-		logrus.Error("domain.server.service.Load() Get err=", errors.NotFoundEffectiveServer)
-		return nil, errors.NotFoundEffectiveServer
-	}
-
-	client := cli.(*entity.Client)
-	if client.IsClosed() {
-		err := s.RemoveClient(client.GetId())
+	for i := 0; i < maxRetryPickClient; i++ {
+		node, err := s.LoadBalancer.Get()
 		if err != nil {
-			fmt.Println("客户端被关闭，已被移除")
-			logrus.Error("domain.server.service.Load() Get err=", errors2.New("客户端被关闭，已被移除"))
+			logrus.Error("domain.server.service.GetClientByBalance() Get err=", err)
 			return nil, err
 		}
+
+		cli, ok := s.clients.Load(node.GetId())
+		if !ok {
+			s.LoadBalancer.Remove(node.GetId())
+			continue
+		}
+
+		client := cli.(*entity.Client)
+		if client.IsClosed() {
+			logrus.Warn("domain.server.service.GetClientByBalance() client closed, removing and retrying, id=", client.GetId())
+			_ = s.RemoveClient(client.GetId())
+			continue
+		}
+
+		return client, nil
 	}
 
-	return client, nil
+	return nil, errors.NotFoundEffectiveServer
 }
 
-type LoadBalance interface {
-	Add(*weightedRRBalance.WeightNode)
-	Get() (*weightedRRBalance.WeightNode, error)
-	Remove(string)
+func (s *ClientManagerDomainTmpl) Done(id string, duration time.Duration, err error) {
+	s.LoadBalancer.Done(id, duration, err)
 }
