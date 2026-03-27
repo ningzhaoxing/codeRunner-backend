@@ -65,38 +65,60 @@ func (i *WebsocketClientImpl) Read() (*proto.ExecuteRequest, error) {
 	return msg, nil
 }
 
-// CallBackSend 将msg通过post发送到回调url
+const (
+	callbackTimeout    = 10 * time.Second
+	callbackMaxRetries = 3
+)
+
+var callbackHTTPClient = &http.Client{Timeout: callbackTimeout}
+
+// CallBackSend 将msg通过post发送到回调url，失败时指数退避重试最多3次
 func (i *WebsocketClientImpl) CallBackSend(msg *proto.ExecuteResponse, err error) error {
-	// 序列化msg
 	if err != nil {
 		msg.Err = err.Error()
 	}
 
 	data, err := json.Marshal(*msg)
 	if err != nil {
-		logrus.Error("infrastructure-websocket-client innerServer CallBackSend() 的 json.Marshal err=", err)
+		logrus.Error("infrastructure-websocket-client CallBackSend() json.Marshal err=", err)
 		return err
 	}
 
-	// 发送msg
-	req, err := http.NewRequest("POST", msg.CallBackUrl, bytes.NewBuffer(data))
-	if err != nil {
-		logrus.Error("infrastructure-websocket-client innerServer CallBackSend() 的 client.NewRequest err=", err)
-		fmt.Println(err)
-		return err
+	var lastErr error
+	for attempt := 0; attempt < callbackMaxRetries; attempt++ {
+		if attempt > 0 {
+			time.Sleep(time.Duration(attempt) * time.Second) // 1s, 2s 退避
+			logrus.Infof("CallBackSend 第 %d 次重试, requestId=%s", attempt, msg.Id)
+		}
+
+		req, err := http.NewRequest("POST", msg.CallBackUrl, bytes.NewBuffer(data))
+		if err != nil {
+			// URL 格式有误，重试无意义
+			logrus.Error("infrastructure-websocket-client CallBackSend() NewRequest err=", err)
+			return err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Request-ID", msg.Id) // 调用方可用于幂等去重
+
+		resp, err := callbackHTTPClient.Do(req)
+		if err != nil {
+			logrus.Errorf("infrastructure-websocket-client CallBackSend() Do err=%v (attempt %d)", err, attempt+1)
+			lastErr = err
+			continue
+		}
+		resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			logrus.Errorf("infrastructure-websocket-client CallBackSend() status=%d (attempt %d)", resp.StatusCode, attempt+1)
+			lastErr = errors.ResultSendFail
+			continue
+		}
+
+		return nil
 	}
-	//fmt.Println(data, msg.CallBackUrl)
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		logrus.Error("infrastructure-websocket-client innerServer CallBackSend() 的 client.Do err=", err)
-		return err
-	}
-	if resp.StatusCode != 200 {
-		logrus.Error("infrastructure-websocket-client innerServer CallBackSend() 的 resp.StatusCode 发送失败", resp.StatusCode)
-		return errors.ResultSendFail
-	}
-	return nil
+
+	logrus.Errorf("infrastructure-websocket-client CallBackSend() 重试耗尽，结果丢失 requestId=%s err=%v", msg.Id, lastErr)
+	return lastErr
 }
 
 func (i *WebsocketClientImpl) WebsocketSend(data any) error {
