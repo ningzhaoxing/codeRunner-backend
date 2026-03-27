@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"codeRunner-siwu/api/proto"
 	"codeRunner-siwu/internal/infrastructure/common/errors"
+	"codeRunner-siwu/internal/infrastructure/websocket/protocol"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
@@ -50,7 +51,7 @@ func (i *WebsocketClientImpl) Dail(targetServer TargetServer) error {
 	return nil
 }
 
-// 读取websocket服务端消息
+// 读取websocket服务端消息，收到后立即回 ACK 再返回
 func (i *WebsocketClientImpl) Read() (*proto.ExecuteRequest, error) {
 	_, m, err := i.conn.ReadMessage()
 	if err != nil {
@@ -58,8 +59,23 @@ func (i *WebsocketClientImpl) Read() (*proto.ExecuteRequest, error) {
 		return nil, err
 	}
 
+	var wsMsg protocol.WsMessage
+	if err = json.Unmarshal(m, &wsMsg); err != nil {
+		return nil, err
+	}
+
+	// 收到 execute 请求后立即回 ACK（执行前），让 Server 从 pendingReqs 移除
+	ack, _ := json.Marshal(protocol.WsMessage{
+		Type:      protocol.MsgTypeAck,
+		RequestID: wsMsg.RequestID,
+	})
+	if writeErr := i.conn.WriteMessage(websocket.TextMessage, ack); writeErr != nil {
+		logrus.Warn("infrastructure-websocket-client Read() send ACK failed: ", writeErr)
+		// ACK 发送失败不阻塞执行，Server 会在断线时重发
+	}
+
 	msg := new(proto.ExecuteRequest)
-	if err = json.Unmarshal(m, msg); err != nil {
+	if err = json.Unmarshal(wsMsg.Payload, msg); err != nil {
 		return nil, err
 	}
 	return msg, nil

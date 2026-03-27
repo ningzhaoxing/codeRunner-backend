@@ -21,16 +21,15 @@ func NewClient(client WebsocketClient) *Client {
 }
 
 func (c *Client) Send(request *proto.ExecuteRequest) error {
-	msg, err := json.Marshal(*request)
+	payload, err := json.Marshal(*request)
 	if err != nil {
 		return err
 	}
+	return c.WebsocketClient.Send(request.Id, payload)
+}
 
-	err = c.WebsocketClient.Send(msg)
-	if err != nil {
-		return err
-	}
-	return nil
+func (c *Client) SetAckHandler(fn func(requestID string)) {
+	c.WebsocketClient.SetAckHandler(fn)
 }
 
 func (c *Client) GetId() string {
@@ -46,7 +45,8 @@ func (c *Client) IsClosed() bool {
 }
 
 type WebsocketClient interface {
-	Send([]byte) error
+	Send(requestID string, payload []byte) error
+	SetAckHandler(fn func(requestID string))
 	Close() error
 	HeartBeat() error
 	Read() ([]byte, error)

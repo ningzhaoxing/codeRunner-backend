@@ -25,39 +25,56 @@ func NewServiceImpl(clientManagerDomain ClientManagerDomain) *ServiceImpl {
 }
 
 func (w *ServiceImpl) Execute(in *proto.ExecuteRequest) error {
-	// 通过负载均衡获取客户端
 	client, err := w.ClientManagerDomain.GetClientByBalance()
 	if err != nil {
 		logrus.Error(fmt.Sprintln("application.server.Execute() GetClientByBalance err=\n", err))
 		return err
 	}
 
-	// 将请求数据发送给内网服务器，并记录发送耗时用于负载均衡反馈
 	start := time.Now()
 	sendErr := client.Send(in)
 	w.ClientManagerDomain.Done(client.GetId(), time.Since(start), sendErr)
 
 	if sendErr != nil {
 		logrus.Error(fmt.Sprintln("application.server.Execute() Send err=\n", sendErr))
+		return sendErr
 	}
-	return sendErr
+
+	// Send 成功后记录为在途请求，等待 Client 的 ACK
+	w.ClientManagerDomain.TrackRequest(client.GetId(), in.Id, in)
+	return nil
 }
 
 func (w *ServiceImpl) Run(cli WebsocketClient, weight int64) error {
-	// 将http请求的内网服务器客户端加入到服务端的 clientManager
 	client := entity.NewClient(cli)
+
+	// 注册 ACK 回调：收到 ACK 时从 pendingReqs 移除
+	cli.SetAckHandler(func(requestID string) {
+		w.ClientManagerDomain.AcknowledgeRequest(client.GetId(), requestID)
+	})
+
 	w.ClientManagerDomain.AddClient(client, weight)
 
-	// 启动心跳检测
 	if err := client.HeartBeat(); err != nil {
 		logrus.Error(fmt.Sprintln("application.server.Run() HeartBeat err=\n", err))
 		return err
 	}
 
-	// 读取客户端消息
 	for {
 		if _, err := client.Read(); err != nil {
-			logrus.Error(fmt.Sprintln("application.server.server.Run() Read() err=\n", err))
+			logrus.Error(fmt.Sprintln("application.server.Run() Read() err=\n", err))
+
+			// 断线：取出所有未 ACK 的请求并重新分发
+			pending := w.ClientManagerDomain.DrainPending(client.GetId())
+			if len(pending) > 0 {
+				logrus.Warnf("application.server.Run() client %s disconnected with %d pending requests, redispatching", client.GetId(), len(pending))
+				for _, req := range pending {
+					if redispatchErr := w.Execute(req); redispatchErr != nil {
+						logrus.Errorf("application.server.Run() redispatch failed for request %s: %v", req.Id, redispatchErr)
+					}
+				}
+			}
+
 			return err
 		}
 	}
@@ -69,10 +86,14 @@ type ClientManagerDomain interface {
 	GetClientByBalance() (*entity.Client, error)
 	GetClientById(id string) (*entity.Client, error)
 	Done(id string, duration time.Duration, err error)
+	TrackRequest(clientID, requestID string, req *proto.ExecuteRequest)
+	AcknowledgeRequest(clientID, requestID string)
+	DrainPending(clientID string) []*proto.ExecuteRequest
 }
 
 type WebsocketClient interface {
-	Send([]byte) error
+	Send(requestID string, payload []byte) error
+	SetAckHandler(fn func(requestID string))
 	Close() error
 	HeartBeat() error
 	Read() ([]byte, error)

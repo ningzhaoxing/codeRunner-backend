@@ -1,6 +1,8 @@
 package server
 
 import (
+	"codeRunner-siwu/internal/infrastructure/websocket/protocol"
+	"encoding/json"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -13,8 +15,9 @@ const (
 )
 
 type WebsocketClientImpl struct {
-	conn     *websocket.Conn
-	isClosed bool
+	conn       *websocket.Conn
+	isClosed   bool
+	ackHandler func(requestID string) // 收到 ACK 时的回调
 }
 
 func NewWebsocketClientImpl(conn *websocket.Conn) *WebsocketClientImpl {
@@ -24,12 +27,47 @@ func NewWebsocketClientImpl(conn *websocket.Conn) *WebsocketClientImpl {
 }
 
 func (c *WebsocketClientImpl) Read() ([]byte, error) {
-	_, msg, err := c.conn.ReadMessage()
-	return msg, err
+	for {
+		_, data, err := c.conn.ReadMessage()
+		if err != nil {
+			return nil, err
+		}
+
+		var msg protocol.WsMessage
+		if err := json.Unmarshal(data, &msg); err != nil {
+			// 无法解析为 WsMessage，原样返回（兼容旧格式）
+			return data, nil
+		}
+
+		if msg.Type == protocol.MsgTypeAck {
+			// ACK 消息：触发回调，继续等下一条消息
+			if c.ackHandler != nil {
+				c.ackHandler(msg.RequestID)
+			}
+			continue
+		}
+
+		return msg.Payload, nil
+	}
 }
 
-func (c *WebsocketClientImpl) Send(msg []byte) error {
-	return c.conn.WriteMessage(websocket.TextMessage, msg)
+// Send 将 payload 封装为 WsMessage 后发送，携带 requestID 用于 ACK 匹配
+func (c *WebsocketClientImpl) Send(requestID string, payload []byte) error {
+	msg := protocol.WsMessage{
+		Type:      protocol.MsgTypeExecute,
+		RequestID: requestID,
+		Payload:   payload,
+	}
+	data, err := json.Marshal(msg)
+	if err != nil {
+		return err
+	}
+	return c.conn.WriteMessage(websocket.TextMessage, data)
+}
+
+// SetAckHandler 设置收到 ACK 时的回调函数
+func (c *WebsocketClientImpl) SetAckHandler(fn func(requestID string)) {
+	c.ackHandler = fn
 }
 
 func (c *WebsocketClientImpl) Close() error {
@@ -44,10 +82,8 @@ func (c *WebsocketClientImpl) Close() error {
 }
 
 func (c *WebsocketClientImpl) HeartBeat() error {
-	// 设置初始读超时
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
 
-	// 收到客户端 Ping 时回复 Pong
 	c.conn.SetPingHandler(func(appData string) error {
 		c.conn.SetReadDeadline(time.Now().Add(pongWait))
 		if err := c.conn.WriteMessage(websocket.PongMessage, []byte(appData)); err != nil {
@@ -57,13 +93,11 @@ func (c *WebsocketClientImpl) HeartBeat() error {
 		return nil
 	})
 
-	// 收到客户端 Pong 时刷新读超时
 	c.conn.SetPongHandler(func(string) error {
 		c.conn.SetReadDeadline(time.Now().Add(pongWait))
 		return nil
 	})
 
-	// 服务端主动发 Ping 探活
 	go func() {
 		ticker := time.NewTicker(pingInterval)
 		defer ticker.Stop()
