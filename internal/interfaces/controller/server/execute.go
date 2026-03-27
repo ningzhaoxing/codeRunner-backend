@@ -21,5 +21,10 @@ func (ctl *EndpointCtl) Execute(ctx context.Context, in *proto.ExecuteRequest) (
 		logrus.Error("interfaces-controller-rpc-execute Execute的 s.Service.Execute err=", err)
 		return nil, err
 	}
-	return nil, err
+
+	// 返回"已接受"语义：请求已提交，结果通过 callBackUrl 异步返回
+	return &proto.ExecuteResponse{
+		Id:       in.Id,
+		GrpcCode: "accepted",
+	}, nil
 }
