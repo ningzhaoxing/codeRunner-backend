@@ -2,6 +2,7 @@ package middleware
 
 import (
 	token2 "codeRunner-siwu/internal/infrastructure/common/token"
+	"codeRunner-siwu/internal/infrastructure/common/tracing"
 
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
@@ -23,10 +24,20 @@ func UnaryInterceptor() grpc.UnaryServerInterceptor {
 			return nil, status.Error(codes.InvalidArgument, "missing metadata")
 		}
 
+		// 注入 TraceID：优先使用调用方传入的 x-trace-id，否则自动生成
+		traceID := ""
+		if vals := md["x-trace-id"]; len(vals) > 0 {
+			traceID = vals[0]
+		}
+		if traceID == "" {
+			traceID = tracing.NewTraceID()
+		}
+		ctx = tracing.WithTraceID(ctx, traceID)
+
 		// 从元数据中获取 token
 		token, ok := md["token"]
 		if !ok || len(token) == 0 {
-			zap.S().Error("token not found")
+			zap.S().With("traceID", traceID).Error("token not found")
 			return nil, status.Error(codes.Unauthenticated, "token not found")
 		}
 
@@ -34,7 +45,7 @@ func UnaryInterceptor() grpc.UnaryServerInterceptor {
 		tokenManager := token2.NewToken()
 		valid, err := tokenManager.Verify(token[0])
 		if err != nil || !valid {
-			zap.S().Error("invalid token")
+			zap.S().With("traceID", traceID).Error("invalid token")
 			return nil, status.Error(codes.Unauthenticated, "invalid token")
 		}
 		// 如果 token 有效，继续处理请求
