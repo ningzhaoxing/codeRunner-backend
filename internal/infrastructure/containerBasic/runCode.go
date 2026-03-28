@@ -2,6 +2,7 @@ package containerBasic
 
 import (
 	"codeRunner-siwu/api/proto"
+	"codeRunner-siwu/internal/infrastructure/metrics"
 	"fmt"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -180,8 +181,18 @@ func (r *runCode) RunCode(request *proto.ExecuteRequest) (duration int64, respon
 	//构建文件路径
 	containerPath := fmt.Sprintf("/app/%s/main.%s", uniqueID, r.extension)
 	duration, response.Result, err = r.runCodeContainer(request.Language, containerPath)
+
+	// 记录 Prometheus 指标
+	status := "success"
 	if err != nil {
+		status = "error"
 		response.Err = err.Error()
+	} else {
+		metrics.CodeExecutionDuration.WithLabelValues(request.Language).Observe(float64(duration) / 1000.0)
+	}
+	metrics.CodeExecutionTotal.WithLabelValues(request.Language, status).Inc()
+
+	if err != nil {
 		return 0, response, err
 	}
 	return duration, response, nil

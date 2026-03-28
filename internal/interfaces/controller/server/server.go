@@ -1,6 +1,7 @@
 package server
 
 import (
+	"codeRunner-siwu/internal/infrastructure/metrics"
 	"codeRunner-siwu/internal/infrastructure/websocket/server"
 	"fmt"
 	"github.com/gin-gonic/gin"
@@ -32,6 +33,9 @@ func (ctl *EndpointCtl) HandleServer() gin.HandlerFunc {
 		if err != nil {
 			return
 		}
+
+		metrics.WSClientsConnected.Inc()
+		defer metrics.WSClientsConnected.Dec()
 
 		if err := ctl.Srv.Run(server.NewWebsocketClientImpl(conn), weight); err != nil {
 			return
