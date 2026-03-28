@@ -1,208 +1,423 @@
-# 代码学习 Agent 实现计划
+# 代码学习 Agent — MVP 实现方案
 
-**目标：** 构建一个独立的 Go 微服务，让博客读者可以就文章内的代码与 AI Agent 对话——调试报错、解释逻辑、生成测试用例，Agent 可以提议修改代码并在用户确认后通过 CodeRunner 运行。
-
-**架构：** 新服务复用现有 `codeRunner-siwu` 仓库。博客前端直接通过 HTTP + SSE 与 Agent 通信（SSE 连接在 `done` 后保持打开）。Agent 在需要运行代码时调用 CodeRunner 现有的 `Execute` gRPC 接口，CodeRunner 本身不做任何改动。
-
-**Agent 框架：** [cloudwego/Eino](https://github.com/cloudwego/eino)，负责 LLM 接入、工具调用、ReAct 循环编排和流式输出。
-
-**AI 模型：** 默认 `claude-opus-4-6`，支持配置切换至 OpenAI。
-
-**设计文档：** `docs/superpowers/specs/2026-03-28-agent-design.md`
+> **状态**：设计草案 · **日期**：2026-03-28
 
 ---
 
-## 前置决策：代码组织方式
+## 1. 概述
 
-在开始开发前，两位开发者需要先共同决定：
+代码学习 Agent 是一个独立 Go 微服务，基于 **Eino ReAct + Skill Middleware** 架构构建，不复用 CodeRunner 现有代码（CodeRunner 本身零改动）。Agent 让博客读者可以就文章内的任意代码进行自然语言对话，支持调试报错、解释逻辑、生成测试，并可在用户确认后通过 CodeRunner 实际运行修改后的代码。
 
-**Agent 服务如何与现有 CodeRunner 代码共存？**
+**核心流程：**
 
-| 方案 | 说明 | 适用场景 |
-|------|------|---------|
-| 同一 `go.mod` | Agent 作为 `cmd/agent/` 入口，共享现有模块依赖 | 依赖高度重叠（gRPC proto、公共工具库等），希望简化维护 |
-| 独立 `go.mod` + Go Workspace | Agent 在子目录下有自己的模块，通过 `go.work` 联调 | 希望依赖隔离，Agent 可独立演进版本 |
-| 独立 Git 仓库 | Agent 完全独立，通过 gRPC 调用 CodeRunner | 团队分工明确，未来可能独立部署和发布 |
+1. 用户在博客页面打开文章，前端初始化 SSE 连接，调用 `POST /chat` 发送首条消息，携带文章内容与所有代码块
+2. Agent 创建 Session，将文章上下文注入 SmartMemory，返回 `session_id`
+3. Agent 进入 Eino ReAct 循环，根据用户意图选择调用相应 Skill（解释/调试/生成测试/提议执行）
+4. Skill 执行结果注入 LLM 上下文，LLM 生成自然语言回复，通过 SSE 流式推送给前端
+5. 若 LLM 调用了 `propose-execution` Skill，前端收到 `proposal` 事件，展示"运行修复版本"按钮
+6. 用户点击确认 → `POST /confirm` → Agent 异步调用 CodeRunner gRPC Execute → 结果通过 HTTP 回调返回
+7. Agent 将执行结果推送至 SSE，注入下一轮对话上下文，用户可继续追问
 
-**建议：** 如果只是不想引入 Eino 等新依赖污染主模块，选"独立 `go.mod` + Go Workspace"是成本最低的隔离方案；如果未来有独立迭代或多人维护的需求，则考虑独立仓库。
+> **关键约束**：`POST /confirm` 必须立即返回（202 语义），gRPC Execute 异步执行；SSE 连接在 `done` 事件后保持打开，等待 `execution_result` 异步推送；同一 `session_id` 的新 `/chat` 请求会向旧连接发送 `interrupted` 后替换连接。
 
----
+**MVP 包含：**
+- 四个 Skill：`explain-code`、`debug-code`、`generate-tests`、`propose-execution`
+- Session 内存存储（TTL 1 小时）
+- CodeRunner gRPC 集成（含 Token 自动刷新）
+- SSE 流式输出与 `interrupted` 机制
+- API Key 鉴权、Prometheus 指标
 
-## 并行开发分工
+**MVP 不包含：**
+- 跨文章持久化记忆
+- Agent 水平扩展（当前内存 Session 不支持多实例共享）
+- 安全审查规则引擎
 
-本计划按两条并行 Track 分配，两位开发者先共同完成 **Task 0**（接口约定和框架搭建），再各自独立开发，最后合并集成。
+**文件结构：**
 
-**开发者 A — 基础设施 Track：** 配置加载、Session 存储、CodeRunner gRPC 客户端（含 Token 管理）、`/confirm` 接口、`/internal/callback` 接口
+```text
+internal/agent/
+├── agent.go                         # Agent 初始化与 Stream() 入口
+├── system_prompt.txt                # Agent 系统提示词
+├── handler/
+│   ├── chat.go                      # POST /chat SSE 处理器
+│   ├── confirm.go                   # POST /confirm 处理器
+│   ├── callback.go                  # POST /internal/callback 回调处理器
+│   └── middleware.go                # API Key 鉴权中间件
+├── session/
+│   ├── types.go                     # AgentSession、Proposal、ExecResult 结构体
+│   └── store.go                     # 内存 Session 存储（sync.Map + TTL）
+├── coderunner/
+│   └── client.go                    # CodeRunner gRPC 客户端 + Token 管理
+└── skills/
+    ├── explain-code/
+    │   └── SKILL.md                 # 代码解释 Skill 描述
+    ├── debug-code/
+    │   └── SKILL.md                 # 代码调试 Skill 描述
+    ├── generate-tests/
+    │   └── SKILL.md                 # 测试生成 Skill 描述
+    └── propose-execution/
+        └── SKILL.md                 # 提议执行 Skill 描述
 
-**开发者 B — AI & Agent Track：** Eino 框架接入、工具层实现、Agent 编排逻辑、`/chat` SSE 处理器
+cmd/agent/
+└── main.go                          # 服务入口，依赖装配与优雅退出
 
-**关键依赖：** 开发者 B 的工具实现依赖开发者 A 的 Session 存储完成后才能开始。
-
----
-
-## Task 0：框架搭建与接口约定（两人一起完成）
-
-**目的：** 在分开开发前对齐核心数据结构、接口契约，以及完成 Eino 框架的基础接入验证。
-
-**需要共同完成的事项：**
-
-1. **确定代码组织方案**（见上方"前置决策"）并初始化项目结构
-2. **约定共享数据结构：** Session、Proposal、ExecResult、ArticleContext 等核心结构体，以及 SSE 事件的 JSON 格式（扁平化，不嵌套 payload 字段）
-3. **验证 Eino 基础接入：** 引入 `cloudwego/eino`，跑通一个最小的 Claude 调用示例，确认流式输出、工具调用注册等核心能力正常工作
-4. **约定 HTTP API 格式：** `/chat`、`/confirm`、`/internal/callback` 的请求/响应结构
-
-**验收：** 双方对数据结构无歧义，Eino 基础调用通过，可以分别开始各自 Track。
-
----
-
-## Track A — 开发者 A
-
----
-
-### Task 1：配置加载
-
-使用 Viper 加载 YAML 配置，涵盖服务端口、内部回调地址、API Key 鉴权、CodeRunner gRPC 地址和服务账号、AI 供应商选择及各自的 Key 和模型、Session TTL、Proposal TTL 等。
-
-敏感字段（API Key、密码）通过 `BindEnv` 显式绑定环境变量，不在 YAML 中写明文。
-
-**验收：** 配置加载测试通过，环境变量注入正常工作。
-
----
-
-### Task 2：Session 存储
-
-实现线程安全的内存 Session 存储，核心能力：
-
-- Session 的创建、读取、更新
-- Proposal 管理：新增（附带 `CallbackToken`、过期时间）、确认（含幂等保护防止重复确认）、过期检测
-- 执行结果存储：将 CodeRunner 回调结果写入对应 Session
-- SSE 通道管理：替换 SSEChan 时返回旧 channel，供调用方发送 `interrupted` 通知；断连后将未送达的结果暂存，待下次 `/chat` 注入
-- TTL 自动过期清理
-
-**验收：** 单元测试覆盖并发安全（使用 `-race` 检测）、Proposal 幂等、TTL 驱逐等场景。
+configs/
+└── agent.yaml                       # 配置模板（敏感字段通过环境变量注入）
+```
 
 ---
 
-### Task 3：CodeRunner gRPC 客户端
+## 2. 架构
 
-封装对 CodeRunner 的 gRPC 调用，包含：
+| 组件 | 选型 |
+| --- | --- |
+| Agent 框架 | cloudwego/Eino（ReAct + Skill Middleware） |
+| Skill 运行时 | Eino Tool 接口，Go 原生实现（无 Python 脚本） |
+| 记忆系统 | Eino SmartMemory，内存存储，TTL 1 小时 |
+| 流式输出 | Server-Sent Events（Gin `c.Stream`） |
+| AI 接入 | Eino ModelProvider，默认 Claude Opus 4.6，可切换 OpenAI |
+| 代码执行 | CodeRunner gRPC Execute（现有接口） |
+| HTTP 框架 | Gin（与 CodeRunner 主服务一致） |
+| 指标监控 | Prometheus（复用现有 client_golang） |
 
-- **语言标准化：** 将用户/AI 可能输入的各种写法（`go`、`js`、`py` 等）统一映射为 CodeRunner 能识别的精确字符串，不在映射表中的返回错误
-- **Token 管理：** 启动时调用 CodeRunner 的 `GenerateToken` 接口获取初始 Token，每 23 小时自动刷新（早于 24 小时过期）；刷新失败时沿用旧 Token 并打印警告日志
-- **Execute 调用：** 注入 Token 后发起 gRPC 请求
+**架构链路：**
 
-**验收：** 语言标准化测试覆盖全部有效/无效输入，Token 缓存测试确认不重复请求。
-
----
-
-### Task 4：/internal/callback 接口
-
-接收 CodeRunner 执行完成后的 HTTP 回调（query 参数含 `session_id`、`proposal_id`、`token`）：
-
-- 验证 `token` 与 Session 中的 `Proposal.CallbackToken` 一致，不一致返回 403
-- 解析 CodeRunner 回调 JSON，将执行结果（`result`、`err` 字段）写入 Session
-- 若 SSEChan 活跃则推送 `execution_result` 事件；否则写入待推送队列
-
-**验收：** 测试覆盖 token 合法/非法、结果写入、SSE 推送和断连存储场景。
-
----
-
-### Task 5：/confirm 接口
-
-接收用户确认执行 Agent 提议的代码：
-
-- 校验顺序：Session 不存在 → 404；Proposal 不存在 → 404；Proposal 已过期 → 410；已确认 → 409
-- 通过后立即返回 200，在后台 goroutine 异步发起 gRPC Execute 调用（不阻塞响应）
-- 异步失败时通过 SSEChan 推送错误事件
-
-**验收：** 测试覆盖各错误状态码和异步执行路径。
-
----
-
-## Track B — 开发者 B
-
-*(前两个 Task 可与 Track A 同时进行，工具实现需等 Task 2 完成后开始)*
-
----
-
-### Task 6：Eino 框架接入与 AI Provider 封装
-
-基于 Eino 框架接入 Claude 和 OpenAI：
-
-- 配置化选择供应商（通过配置文件中的 `provider` 字段切换）
-- 流式输出支持，结果实时推送给 SSE 连接
-- **并行工具调用禁用**（Eino 配置 `parallel_tool_calls: false`），防止 Agent 并发调用工具产生幻觉
-- 错误处理：LLM 调用失败时通过 SSE 推送错误事件
-
-**验收：** 编译时接口检查通过，可跑通完整的流式对话和工具调用。
+```text
+博客前端 (HTTP + SSE)
+    │
+    ▼
+Gin Handler（chat.go / confirm.go / callback.go）
+    │  API Key 鉴权中间件
+    ▼
+AgentService.Stream()（agent.go）
+    ├── SmartMemory.Load()           # 加载历史对话 + 文章上下文
+    ├── Eino ReAct Loop（Eino v0.x）
+    │   ├── Claude / OpenAI ModelProvider（流式）
+    │   └── Skill Middleware
+    │       ├── explain-code         # → 读取 Session 中代码块
+    │       ├── debug-code           # → 读取代码块 + 最近执行结果
+    │       ├── generate-tests       # → 读取代码块
+    │       └── propose-execution    # → 写入 Proposal（含 CallbackToken）
+    ├── ChatModelAgentMiddleware 钩子
+    │   ├── AfterChatModel           # 注入 chunk / proposal / done 事件
+    │   └── AfterToolCall            # 注入 tool_result 事件（调试用）
+    ├── SmartMemory.Persist()        # 持久化本轮对话
+    └── SSEWriter                    # 流式推送给前端
+          ↑
+CodeRunner gRPC Execute（confirm 异步触发）
+    └── HTTP 回调 → callback.go → SSEWriter
+```
 
 ---
 
-### Task 7：工具层实现
+## 3. Skill 设计
 
-基于 Eino 的工具接口，实现 4 个工具：
+### Skill 1：`explain-code`
 
-- **`explain_code`：** 从 Session 中读取指定代码块，附加最近执行结果（若有），返回供 AI 分析
-- **`debug_code`：** 同上，额外附加用户报告的报错信息
-- **`generate_tests`：** 返回代码块内容和语言，供 AI 生成测试用例
-- **`propose_execution`：** 先做语言标准化（调用 Task 3 中的函数），再在 Session 中写入 Proposal（含 `CallbackToken`、过期时间），返回 `proposal_id`
+接收 `block_id`，从 Session 中读取对应代码块内容、语言和最近一次执行结果（若有），返回结构化上下文供 LLM 生成解释。LLM 据此结合文章背景对代码功能、设计意图进行解读。
 
-每个工具在 Eino 中注册时附带清晰的 `Use when` / `NOT for` 说明，帮助 AI 正确选择工具。
+```text
+Use when: 用户询问某段代码是什么意思；用户问"为什么这样写"；用户希望理解代码的行为或设计
+NOT for: 修复 bug；生成新代码；解释报错信息（用 debug-code）
+```
 
-**验收：** 工具测试覆盖合法 block_id、非法 block_id、不支持的语言、成功创建 Proposal 等场景。
+Skill 实现（Go Tool）：
 
----
-
-### Task 8：Agent 编排与 /chat SSE 处理器
-
-基于 Eino 的 Agent 编排能力，实现完整的对话流程：
-
-**编排逻辑：**
-- 注入待推送的执行结果（PendingResults）作为本轮上下文前缀
-- 上下文压缩：对话历史超过阈值时，使用 Eino 的上下文压缩机制（或 LLM 摘要）精简早期消息，文章上下文始终保留
-- System prompt 包含文章全文和代码块列表
-- 最大步数限制（防止无限循环）
-
-**SSE 处理器：**
-- 首次请求需传入文章上下文（`article_id`、`article_content`、`code_blocks`），创建 Session 并在第一个 SSE 事件中返回 `session_id`
-- 后续请求携带 `session_id`，若同时传入文章上下文则视为重置（清空对话历史、覆盖文章内容）
-- 替换 SSEChan 前，向旧连接发送 `interrupted` 通知
-- SSE 连接在 `done` 事件后**保持打开**（等待异步执行结果），仅在 `interrupted` 或客户端断开时关闭
-
-**验收：** 测试覆盖纯文本响应、工具调用循环、最大步数限制、SSE 连接生命周期管理。
+- 输入：`block_id`
+- 执行：从 Session 的 `ArticleCtx.CodeBlocks` 中查找代码块；附加 `ExecutionResults["proposal:{pid}"]` 中最近一次执行的 `result`（若有）
+- 输出：`{ "language": "golang", "code": "...", "last_output": "..." }`
 
 ---
 
-## 集成阶段（两人合作）
+### Skill 2：`debug-code`
+
+接收 `block_id` 和用户描述的 `error_message`，读取代码块及最近执行结果，为 LLM 提供完整的调试上下文（代码 + 报错 + 实际输出）。
+
+```text
+Use when: 用户报告代码报错；用户说"跑不起来"；用户描述了非预期的运行结果
+NOT for: 解释正常运行的代码逻辑（用 explain-code）；生成测试（用 generate-tests）
+```
+
+Skill 实现（Go Tool）：
+
+- 输入：`block_id`，`error_message`
+- 执行：同 `explain-code`，额外附加 `error_message` 和完整执行输出（`result` + `err`）
+- 输出：`{ "language": "golang", "code": "...", "error_reported": "...", "last_output": "...", "last_err": "..." }`
 
 ---
 
-### Task 9：鉴权中间件与路由
+### Skill 3：`generate-tests`
 
-- 鉴权中间件：读取 `X-Agent-API-Key` 请求头，不匹配返回 401
-- 路由：`/metrics`（无需鉴权）、`/internal/callback`（callback_token 验证）、`/chat`（需 API Key）、`/confirm`（需 API Key）
-- 注册 Recovery 中间件防止 panic
+接收 `block_id`，返回代码块内容和语言，供 LLM 生成边界测试用例。LLM 生成的测试代码可通过后续的 `propose-execution` 提交运行。
 
----
+```text
+Use when: 用户要求生成测试用例；用户说"帮我验证这个函数的边界情况"
+NOT for: 直接运行测试（需用户通过 propose-execution 确认后再运行）；解释代码逻辑
+```
 
-### Task 10：服务入口与端到端冒烟测试
+Skill 实现（Go Tool）：
 
-**服务入口：** 根据配置初始化 Eino + AI Provider，连接 CodeRunner gRPC，启动 HTTP 服务，监听信号优雅退出。
-
-**冒烟测试验证以下场景：**
-
-1. 无 API Key 调用 `/chat` → 返回 401
-2. 首次 `/chat` 传入文章上下文 → SSE 第一个事件包含 `session_id`，后续有文本流和 `done`
-3. `/confirm` 传入不存在的 session → 404；过期的 proposal → 410
-4. `/metrics` 返回 Prometheus 指标
-5. 所有单元测试通过，无竞态警告：`go test ./... -race -count=1`
+- 输入：`block_id`
+- 执行：从 Session 读取代码块
+- 输出：`{ "language": "golang", "code": "..." }`
 
 ---
 
-## 开发前置步骤
+### Skill 4：`propose-execution`
 
-两位开发者需要先完成：
+当 LLM 准备好一段具体可运行的代码时调用。在 Session 中创建 Proposal 记录（含 `CallbackToken`、过期时间），向前端推送 `proposal` SSE 事件，等待用户通过 `POST /confirm` 确认后异步触发 CodeRunner 执行。
 
-1. 共同决定代码组织方案并初始化项目结构（Task 0）
-2. 引入 Eino 依赖：`go get github.com/cloudwego/eino`
-3. 根据 `docs/superpowers/specs/2026-03-28-agent-design.md` 设置本地环境变量
+```text
+Use when: LLM 生成了修复后的代码，需要用户确认是否运行；LLM 生成了测试代码，需要实际执行验证
+NOT for: 尚未完成的代码片段；猜测性代码；解释用途（无需运行）
+```
+
+Skill 实现（Go Tool）：
+
+- 输入：`new_code`（代码内容），`language`（必须为 CodeRunner 支持的精确字符串：golang / python / javascript / java / c），`description`（LLM 对本次修改的简短说明）
+- 执行：语言标准化校验（`go`/`Go` → `golang` 等）；调用 `store.AddProposal()` 生成 `proposal_id` + `CallbackToken`；写入 Session；推送 `proposal` SSE 事件
+- 输出（注入 LLM 上下文）：`{ "proposal_id": "uuid", "status": "pending_confirmation" }`
+
+---
+
+## 6. 核心推理逻辑
+
+**LLM 输入（每轮）：**
+
+- System Prompt：内嵌文章全文 + 所有代码块列表（block_id、语言、代码内容）+ 4 个 Skill 的 `Use when` / `NOT for` 说明
+- SmartMemory 注入的历史对话（超过 8000 token 时自动压缩早期消息为摘要）
+- 若有待推送的执行结果（PendingResults），前置注入为本轮 user message 的上下文前缀
+
+**LLM 决策：**
+
+- 纯回答（`finish_reason: stop`）→ 流式输出文本，推送 `done` 事件，ReAct 循环结束
+- 工具调用（`finish_reason: tool_calls`）→ 执行对应 Skill，结果注入上下文，继续循环
+- 达到最大步数（默认 10 步）→ 推送错误事件，强制退出循环
+
+**歧义处理：**
+
+- `block_id` 不存在 → Skill 返回工具错误，LLM 收到后提示用户确认代码块 ID
+- 语言不支持 → `propose-execution` Skill 返回错误，LLM 告知用户当前支持的语言范围
+- `propose-execution` 连续两轮被调用但用户未确认 → LLM 上下文中已有 `pending_confirmation` 状态，通常不会重复提议
+
+---
+
+## 7. 上下文管理（SmartMemory）
+
+```go
+memory := eino.NewSmartMemory(eino.SmartMemoryConfig{
+    MaxTokens:     8000,       // 历史消息 token 上限（文章上下文单独存储，不参与压缩）
+    CompressModel: llmProvider, // 压缩时调用同一 LLM 生成摘要
+    Storage:       sessionStore, // 自定义 Storage 接口，底层为 sync.Map + TTL 1h
+})
+```
+
+**注入方式：** Eino `MessageModifier` 机制，在每次 ReAct 循环前将 Session 中的文章上下文（首次写入后固定不变）和历史对话拼接注入，消息序列为：
+
+```
+[system prompt + 文章上下文] + [历史对话（压缩后）] + [当前 user message]
+```
+
+**跨轮次恢复：**
+
+1. `SmartMemory.Load(session_id)` → 从 Session Store 读取历史消息
+2. `MessageModifier` 注入 → 构建完整上下文传给 LLM
+3. ReAct 循环结束后 `SmartMemory.Persist(session_id)` → 写回 Session Store
+
+**上下文压缩触发条件：** 历史消息（不含文章上下文）token 估算（字符数 ÷ 4）超过 8000 时，保留最近 3 条消息，对更早历史调用额外 LLM 生成摘要替换。
+
+---
+
+## 8. 用户意图澄清
+
+**触发条件：** 用户提问模糊（如"帮我看看"而不指定代码块）时，LLM 直接输出澄清问句，不调用任何 Skill。
+
+**ReAct 终止与恢复：**
+
+- LLM 输出纯文本且无 tool_call → ReAct Loop 自然结束，推送 `done` 事件，SSE 连接保持打开
+- 用户补充信息后发起新的 `/chat` 请求 → 携带同一 `session_id`，SmartMemory 加载历史后继续推理
+- 新 `/chat` 到达时，向旧 SSE 连接推送 `interrupted` 事件后替换连接
+
+**SSE 事件分类：** `AfterChatModel` 钩子检查输出内容：
+
+- 包含 tool_call → 继续 ReAct，暂不推送 `done`
+- 纯文本输出 → 推送文本 chunk + `done`（可能是澄清问句，也可能是最终回答）
+
+---
+
+## 9. SSE 事件机制
+
+**两个来源：**
+
+1. **Eino 框架 AsyncIterator**：LLM 流式输出的文本 chunk
+2. **ChatModelAgentMiddleware 钩子**：业务自定义事件（proposal、execution_result、error、interrupted）
+
+**事件注入点：**
+
+| 事件类型 | 注入方式 | 触发时机 |
+| --- | --- | --- |
+| `session` | Handler 层直接写入 | 首次 `/chat`，Session 创建后 |
+| `chunk` | AfterChatModel AsyncIterator | LLM 每个 text delta |
+| `proposal` | propose-execution Skill 内部 | Skill 写入 Proposal 后 |
+| `done` | AfterChatModel | LLM finish_reason == stop |
+| `execution_result` | callback.go | CodeRunner 回调到达 |
+| `error` | AfterChatModel / confirm goroutine | LLM 报错 / gRPC 执行失败 |
+| `interrupted` | chat.go，ReplaceSSEChan 前 | 同 session_id 新 /chat 到达 |
+
+**事件字段映射：**
+
+| 事件 | 关键字段 |
+| --- | --- |
+| `session` | `session_id` |
+| `chunk` | `content`（字符串） |
+| `proposal` | `proposal_id`、`code`、`language`、`description` |
+| `execution_result` | `proposal_id`、`result`（stdout+stderr 合并）、`err` |
+| `error` | `message` |
+| `done` | —（无附加字段） |
+| `interrupted` | —（无附加字段） |
+
+所有事件格式为扁平 JSON，通过 `data: {...}\n\n` 推送：
+
+```text
+data: {"type":"session","session_id":"uuid-v4"}
+data: {"type":"chunk","content":"这段代码..."}
+data: {"type":"proposal","proposal_id":"uuid","code":"...","language":"golang","description":"修复了数组越界"}
+data: {"type":"done"}
+data: {"type":"execution_result","proposal_id":"uuid","result":"Hello World","err":""}
+data: {"type":"interrupted"}
+```
+
+---
+
+## 11. 关键技术决策
+
+### 决策 1：Agent 作为独立微服务而非嵌入 CodeRunner
+
+**结论**：独立微服务，不修改 CodeRunner 任何代码。
+
+**原因**：
+
+- Agent 需要理解文章全文、维护多轮对话状态、调用 LLM，职责与 CodeRunner（代码执行调度）完全不同
+- 独立部署使两个服务可以独立演进、独立扩展
+- 不引入 Eino 等新依赖污染 CodeRunner 主模块
+
+---
+
+### 决策 2：不使用 Python 脚本，Skill 以 Go Tool 实现
+
+**结论**：4 个 Skill 均为 Go 原生 Tool，通过 Eino Tool 接口注册。
+
+**原因**：
+
+- 本 Agent 的 Skill 操作的是 Go 内存结构（Session、CodeBlock），不需要跨进程调用外部脚本
+- Go 原生实现省去进程启动开销，延迟更低
+- 避免在纯 Go 微服务中引入 Python 运行时依赖
+
+---
+
+### 决策 3：`POST /confirm` 立即返回，gRPC Execute 异步执行
+
+**结论**：`/confirm` 返回 202 Accepted，在后台 goroutine 中异步调用 CodeRunner。
+
+**原因**：
+
+- CodeRunner 执行可能耗时数秒，同步等待会阻塞 HTTP 连接
+- 执行结果已有异步回调机制（`/internal/callback`），天然适合异步模式
+- 与 CodeRunner 原有的"提交即接受，结果走回调"语义一致
+
+---
+
+### 决策 4：SSE 连接在 `done` 后保持打开
+
+**结论**：`done` 仅表示本轮 AI 回复完成，SSE 连接持续存活，等待异步 `execution_result`。
+
+**原因**：
+
+- 用户确认执行后，执行结果需通过 SSE 推送。若 `done` 关闭连接，`execution_result` 无法送达
+- 用户提交下一条消息时会发起新的 `/chat`，自然通过 `interrupted` 替换旧连接
+
+---
+
+### 决策 5：CodeRunner Token 23 小时自动刷新
+
+**结论**：Token Manager 在后台定时刷新，刷新失败时沿用旧 Token 并打印警告。
+
+**原因**：
+
+- CodeRunner JWT 有效期 24 小时，静态 Token 在配置文件中会在 24 小时后失效
+- 服务不应因 Token 过期在夜间静默崩溃
+- 刷新失败降级而非崩溃，保留最后已知有效 Token 争取时间
+
+---
+
+## 12. 迭代计划
+
+### Iter 0：最窄端到端通路（~3d）
+
+**目标**：走通从 `/chat` 到 SSE 流式回复的完整链路，不涉及工具调用。
+
+**范围**：
+
+- 服务启动、Gin 路由、API Key 鉴权
+- Eino 框架接入，Claude 流式调用
+- Session 创建与 SmartMemory 基础注入
+- SSE 推送：`session`、`chunk`、`done` 事件
+
+**不做**：工具调用、CodeRunner 集成、Proposal 机制
+
+**验证**：发送"帮我解释一下 goroutine 是什么"→ SSE 收到流式文本回复 + `done` 事件，`session_id` 正确返回。
+
+---
+
+### Iter 1：完整工具调用（~4d）
+
+**在 Iter 0 基础上新增**：
+
+- 4 个 Skill 注册到 Eino ReAct（`explain-code`、`debug-code`、`generate-tests`、`propose-execution`）
+- 文章上下文（`article_ctx`）注入 Session 与 System Prompt
+- `propose-execution` 写入 Proposal，推送 `proposal` SSE 事件
+- 上下文压缩（超过 8000 token 时压缩历史）
+- `interrupted` 机制（新 `/chat` 替换旧 SSE 连接）
+
+**不做**：用户确认执行（`/confirm`）、CodeRunner 集成
+
+**验证**：传入包含 Go 代码的文章 → 问"这段代码为什么会 panic？" → Agent 调用 `debug-code` Skill → 给出修复建议 → 前端收到 `proposal` 事件（含代码和说明）。
+
+---
+
+### Iter 2：执行确认与结果回调（~3d）
+
+**在 Iter 1 基础上新增**：
+
+- `POST /confirm` 实现（校验 session/proposal/幂等/过期）
+- CodeRunner gRPC 客户端（含 Token Manager 23h 刷新）
+- `POST /internal/callback` 处理（token 验证、结果写入 Session、SSE 推送 `execution_result`）
+- PendingResults 机制（SSE 断开时暂存结果，下次 `/chat` 注入）
+
+**不做**：水平扩展、持久化存储
+
+**验证**：Agent 给出修复代码 → 前端点击确认 → `/confirm` 返回 202 → CodeRunner 执行 → SSE 收到 `execution_result`（stdout 输出正确）→ 继续追问"为什么这样修能解决问题" → Agent 结合执行结果给出解释。
+
+---
+
+### Iter 3：收尾加固（~2d）
+
+**在 Iter 2 基础上新增**：
+
+- 边界处理：并发 `/chat`、Proposal 过期 410、session 不存在 404、LLM 超步 error 事件
+- Prometheus 指标注册（`agent_chat_duration_seconds`、`agent_tool_calls_total`、`agent_sessions_active`）
+- System Prompt 调优（根据 Iter 1/2 测试中发现的工具误用场景优化 `Use when` / `NOT for`）
+- 单元测试覆盖：Session Store 并发安全、Proposal 幂等、语言标准化全 case
+
+**不做**：新功能
+
+**验证**：运行 `go test ./... -race -count=1` 全部通过；压测并发 `/chat` 无竞态；Prometheus `/metrics` 端点数据正确。
+
+---
+
+| 迭代 | 交付物 | 累计可用能力 | 预估 |
+| --- | --- | --- | --- |
+| Iter 0 | 服务启动 + SSE 流式回复 | 自然语言对话（无工具） | 3d |
+| Iter 1 | 4 个 Skill + 文章上下文 | 调试/解释/测试建议 + proposal 事件 | 4d |
+| Iter 2 | /confirm + CodeRunner + 回调 | 端到端代码执行与结果反馈 | 3d |
+| Iter 3 | 加固 + 指标 + 测试 | 生产就绪 | 2d |
