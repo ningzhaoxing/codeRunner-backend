@@ -2,71 +2,56 @@
 
 **目标：** 构建一个独立的 Go 微服务，让博客读者可以就文章内的代码与 AI Agent 对话——调试报错、解释逻辑、生成测试用例，Agent 可以提议修改代码并在用户确认后通过 CodeRunner 运行。
 
-**架构：** 新服务位于 `cmd/agent/`，复用现有 `codeRunner-siwu` 模块。博客前端直接通过 HTTP + SSE 与 Agent 通信（SSE 连接在 `done` 后保持打开）。Agent 在需要运行代码时调用 CodeRunner 现有的 `Execute` gRPC 接口，CodeRunner 本身不做任何改动。
+**架构：** 新服务复用现有 `codeRunner-siwu` 仓库。博客前端直接通过 HTTP + SSE 与 Agent 通信（SSE 连接在 `done` 后保持打开）。Agent 在需要运行代码时调用 CodeRunner 现有的 `Execute` gRPC 接口，CodeRunner 本身不做任何改动。
 
-**技术栈：** Go 1.23、Gin、gRPC（现有）、Anthropic SDK、OpenAI SDK、UUID（现有）、Prometheus（现有）、Zap（现有）、Viper（现有）
+**Agent 框架：** [cloudwego/Eino](https://github.com/cloudwego/eino)，负责 LLM 接入、工具调用、ReAct 循环编排和流式输出。
+
+**AI 模型：** 默认 `claude-opus-4-6`，支持配置切换至 OpenAI。
 
 **设计文档：** `docs/superpowers/specs/2026-03-28-agent-design.md`
 
 ---
 
+## 前置决策：代码组织方式
+
+在开始开发前，两位开发者需要先共同决定：
+
+**Agent 服务如何与现有 CodeRunner 代码共存？**
+
+| 方案 | 说明 | 适用场景 |
+|------|------|---------|
+| 同一 `go.mod` | Agent 作为 `cmd/agent/` 入口，共享现有模块依赖 | 依赖高度重叠（gRPC proto、公共工具库等），希望简化维护 |
+| 独立 `go.mod` + Go Workspace | Agent 在子目录下有自己的模块，通过 `go.work` 联调 | 希望依赖隔离，Agent 可独立演进版本 |
+| 独立 Git 仓库 | Agent 完全独立，通过 gRPC 调用 CodeRunner | 团队分工明确，未来可能独立部署和发布 |
+
+**建议：** 如果只是不想引入 Eino 等新依赖污染主模块，选"独立 `go.mod` + Go Workspace"是成本最低的隔离方案；如果未来有独立迭代或多人维护的需求，则考虑独立仓库。
+
+---
+
 ## 并行开发分工
 
-本计划按两条并行 Track 分配，两位开发者先共同完成 **Task 0**（接口约定），再各自独立开发，最后合并集成。
+本计划按两条并行 Track 分配，两位开发者先共同完成 **Task 0**（接口约定和框架搭建），再各自独立开发，最后合并集成。
 
-**开发者 A — 基础设施 Track：** 配置加载、Session 存储、CodeRunner gRPC 客户端、`/confirm` 接口、`/internal/callback` 接口
+**开发者 A — 基础设施 Track：** 配置加载、Session 存储、CodeRunner gRPC 客户端（含 Token 管理）、`/confirm` 接口、`/internal/callback` 接口
 
-**开发者 B — AI & Agent Track：** AI Provider 抽象、Claude 实现、OpenAI 实现、工具层、Agent ReAct 循环
+**开发者 B — AI & Agent Track：** Eino 框架接入、工具层实现、Agent 编排逻辑、`/chat` SSE 处理器
 
-**关键依赖：** 开发者 B 的 Task 8（工具实现）依赖开发者 A 的 Task 2（Session 存储）完成后才能开始。
-
----
-
-## 新增文件清单
-
-```text
-cmd/agent/main.go                          新建 — 服务入口
-configs/agent.yaml                         新建 — Agent 配置模板
-internal/agent/config/config.go            新建 — 配置结构体与加载逻辑
-internal/agent/config/config_test.go       新建
-internal/agent/session/types.go            新建 — 共享数据结构（Task 0，两人共同完成）
-internal/agent/session/store.go            新建 — Session 内存存储
-internal/agent/session/store_test.go       新建
-internal/agent/coderunner/client.go        新建 — gRPC 客户端 + Token 管理
-internal/agent/coderunner/client_test.go   新建
-internal/agent/ai/provider.go              新建 — AI Provider 接口（Task 0，两人共同完成）
-internal/agent/ai/claude/claude.go         新建 — Claude 实现
-internal/agent/ai/claude/claude_test.go    新建
-internal/agent/ai/openai/openai.go         新建 — OpenAI 实现
-internal/agent/ai/openai/openai_test.go    新建
-internal/agent/tools/tools.go              新建 — 4 个工具实现
-internal/agent/tools/tools_test.go         新建
-internal/agent/service/agent.go            新建 — Agent 服务与 ReAct 循环
-internal/agent/service/agent_test.go       新建
-internal/agent/handler/chat.go             新建 — POST /chat SSE 处理器
-internal/agent/handler/chat_test.go        新建
-internal/agent/handler/confirm.go          新建 — POST /confirm 处理器
-internal/agent/handler/confirm_test.go     新建
-internal/agent/handler/callback.go         新建 — POST /internal/callback 处理器
-internal/agent/handler/callback_test.go    新建
-internal/agent/handler/middleware.go       新建 — API Key 鉴权中间件
-internal/agent/router/router.go            新建 — Gin 路由装配
-```
+**关键依赖：** 开发者 B 的工具实现依赖开发者 A 的 Session 存储完成后才能开始。
 
 ---
 
-## Task 0：共享接口约定（两人一起完成）
+## Task 0：框架搭建与接口约定（两人一起完成）
 
-**负责人：** 双方共同
+**目的：** 在分开开发前对齐核心数据结构、接口契约，以及完成 Eino 框架的基础接入验证。
 
-**目的：** 在分开开发前，先对齐两条 Track 都会用到的核心数据结构和接口，避免后续出现不兼容问题。
+**需要共同完成的事项：**
 
-**需要约定的内容：**
+1. **确定代码组织方案**（见上方"前置决策"）并初始化项目结构
+2. **约定共享数据结构：** Session、Proposal、ExecResult、ArticleContext 等核心结构体，以及 SSE 事件的 JSON 格式（扁平化，不嵌套 payload 字段）
+3. **验证 Eino 基础接入：** 引入 `cloudwego/eino`，跑通一个最小的 Claude 调用示例，确认流式输出、工具调用注册等核心能力正常工作
+4. **约定 HTTP API 格式：** `/chat`、`/confirm`、`/internal/callback` 的请求/响应结构
 
-1. **Session 数据结构**（`internal/agent/session/types.go`）：定义 `AgentSession`、`Proposal`、`ExecResult`、`ArticleContext`、`CodeBlock`、`Message` 等结构体，以及 `SSEEvent` 的类型（`map[string]any`，保证 SSE 事件格式扁平化）
-2. **AI Provider 接口**（`internal/agent/ai/provider.go`）：定义 `Provider` 接口、`ChatChunk`、`ChatRequest`、`Tool`、`ToolCall` 等类型
-
-**验收：** 两人对上述类型无歧义，可以分别开始各自 Track 的开发。
+**验收：** 双方对数据结构无歧义，Eino 基础调用通过，可以分别开始各自 Track。
 
 ---
 
@@ -76,167 +61,115 @@ internal/agent/router/router.go            新建 — Gin 路由装配
 
 ### Task 1：配置加载
 
-**文件：** `configs/agent.yaml`、`internal/agent/config/config.go`、`config_test.go`
+使用 Viper 加载 YAML 配置，涵盖服务端口、内部回调地址、API Key 鉴权、CodeRunner gRPC 地址和服务账号、AI 供应商选择及各自的 Key 和模型、Session TTL、Proposal TTL 等。
 
-**工作内容：**
+敏感字段（API Key、密码）通过 `BindEnv` 显式绑定环境变量，不在 YAML 中写明文。
 
-- 定义配置结构体，覆盖 Server（端口、内部回调地址、API Key）、CodeRunner（gRPC 地址、服务账号、密码、Token 刷新间隔）、Agent（AI 供应商、最大步数、上下文压缩阈值、Session TTL、Proposal TTL、Claude 和 OpenAI 各自的 Key 和模型）等字段
-- 使用 Viper 加载 YAML，对敏感字段（API Key、密码）通过 `BindEnv` 显式绑定环境变量，不在 YAML 中写明文值
-- 编写测试：验证环境变量注入正常工作
-
-**验收：** `go test ./internal/agent/config/...` 通过
+**验收：** 配置加载测试通过，环境变量注入正常工作。
 
 ---
 
 ### Task 2：Session 存储
 
-**文件：** `internal/agent/session/store.go`、`store_test.go`
+实现线程安全的内存 Session 存储，核心能力：
 
-**工作内容：**
+- Session 的创建、读取、更新
+- Proposal 管理：新增（附带 `CallbackToken`、过期时间）、确认（含幂等保护防止重复确认）、过期检测
+- 执行结果存储：将 CodeRunner 回调结果写入对应 Session
+- SSE 通道管理：替换 SSEChan 时返回旧 channel，供调用方发送 `interrupted` 通知；断连后将未送达的结果暂存，待下次 `/chat` 注入
+- TTL 自动过期清理
 
-- 基于 `sync.Map` 实现线程安全的 Session 存储，支持：创建 Session、按 ID 读取、获取 Proposal、新增 Proposal（附带 `CallbackToken`、过期时间）、确认 Proposal（含幂等保护，防止重复确认）、保存执行结果、推送 SSE 事件、替换 SSEChan（替换时返回旧 channel 供调用方发送 `interrupted` 事件）、清空待推送结果
-- 实现 TTL 自动过期（后台 goroutine 定期清理）
-- 错误类型：`ErrNotFound`、`ErrProposalNotFound`、`ErrAlreadyConfirmed`、`ErrProposalExpired`
-- 编写测试：覆盖创建/读取、TTL 驱逐、Proposal 幂等、SSEChan 替换返回旧 channel 等场景，使用 `-race` 检测并发安全
-
-**验收：** `go test ./internal/agent/session/... -race` 通过
-
----
-
-### Task 3：CodeRunner gRPC 客户端 + Token 管理
-
-**文件：** `internal/agent/coderunner/client.go`、`client_test.go`
-
-**工作内容：**
-
-- 实现语言标准化函数（`go/Go/golang` → `golang`，`py/python` → `python` 等），不在此表中的语言返回错误
-- 实现 `TokenManager`：启动时调用 CodeRunner 的 `GenerateToken` gRPC（传入 `service_name` + `service_password`）获取初始 Token，每 23 小时自动刷新；刷新失败时沿用旧 Token 并打印警告日志
-- 实现 `Client.Execute()`：从 `TokenManager` 获取 Token 后注入 gRPC metadata，发起 Execute 调用
-- 导出 `Executor` 接口，方便测试时 mock
-- 编写测试：覆盖语言标准化所有 case、Token 缓存不重复请求等场景
-
-**验收：** `go test ./internal/agent/coderunner/...` 通过
+**验收：** 单元测试覆盖并发安全（使用 `-race` 检测）、Proposal 幂等、TTL 驱逐等场景。
 
 ---
 
-### Task 4：内部回调处理器
+### Task 3：CodeRunner gRPC 客户端
 
-**文件：** `internal/agent/handler/callback.go`、`callback_test.go`
+封装对 CodeRunner 的 gRPC 调用，包含：
 
-**工作内容：**
+- **语言标准化：** 将用户/AI 可能输入的各种写法（`go`、`js`、`py` 等）统一映射为 CodeRunner 能识别的精确字符串，不在映射表中的返回错误
+- **Token 管理：** 启动时调用 CodeRunner 的 `GenerateToken` 接口获取初始 Token，每 23 小时自动刷新（早于 24 小时过期）；刷新失败时沿用旧 Token 并打印警告日志
+- **Execute 调用：** 注入 Token 后发起 gRPC 请求
 
-- 处理 `POST /internal/callback`（query 参数：`session_id`、`proposal_id`、`token`）
-- 验证 `token` 与 Session 中存储的 `Proposal.CallbackToken` 一致（不一致返回 403）
-- 解析 CodeRunner 回调的 JSON 体（字段：`id`、`result`、`err` 等），将结果写入 Session
-- 若 SSEChan 活跃则推送 `execution_result` 事件；否则写入 `PendingResults` 等待下次 `/chat` 注入
-- 编写测试：覆盖 token 合法/非法、结果写入、SSE 推送、pending 存储等场景
-
-**验收：** `go test ./internal/agent/handler/... -run TestCallback` 通过
+**验收：** 语言标准化测试覆盖全部有效/无效输入，Token 缓存测试确认不重复请求。
 
 ---
 
-### Task 5：/confirm 处理器
+### Task 4：/internal/callback 接口
 
-**文件：** `internal/agent/handler/confirm.go`、`confirm_test.go`
+接收 CodeRunner 执行完成后的 HTTP 回调（query 参数含 `session_id`、`proposal_id`、`token`）：
 
-**工作内容：**
+- 验证 `token` 与 Session 中的 `Proposal.CallbackToken` 一致，不一致返回 403
+- 解析 CodeRunner 回调 JSON，将执行结果（`result`、`err` 字段）写入 Session
+- 若 SSEChan 活跃则推送 `execution_result` 事件；否则写入待推送队列
 
-- 处理 `POST /confirm`（请求体：`session_id`、`proposal_id`）
+**验收：** 测试覆盖 token 合法/非法、结果写入、SSE 推送和断连存储场景。
+
+---
+
+### Task 5：/confirm 接口
+
+接收用户确认执行 Agent 提议的代码：
+
 - 校验顺序：Session 不存在 → 404；Proposal 不存在 → 404；Proposal 已过期 → 410；已确认 → 409
-- 校验通过后立即返回 200（`{"request_id":"...","status":"accepted"}`），在后台 goroutine 异步发起 gRPC Execute 调用
-- 异步调用失败时通过 SSEChan 推送错误事件；若 SSEChan 已关闭则写入 PendingResults
-- 构造回调 URL 格式：`{internal_base_url}/internal/callback?session_id=...&proposal_id=...&token=...`
-- 编写测试：覆盖各错误状态码、成功返回 202 语义
+- 通过后立即返回 200，在后台 goroutine 异步发起 gRPC Execute 调用（不阻塞响应）
+- 异步失败时通过 SSEChan 推送错误事件
 
-**验收：** `go test ./internal/agent/handler/... -run TestConfirm` 通过
+**验收：** 测试覆盖各错误状态码和异步执行路径。
 
 ---
 
 ## Track B — 开发者 B
 
-*(Task 6、7 可与 Track A 同时进行；Task 8 需等 Task 2 完成后开始)*
+*(前两个 Task 可与 Track A 同时进行，工具实现需等 Task 2 完成后开始)*
 
 ---
 
-### Task 6：Claude AI Provider
+### Task 6：Eino 框架接入与 AI Provider 封装
 
-**文件：** `internal/agent/ai/claude/claude.go`、`claude_test.go`
+基于 Eino 框架接入 Claude 和 OpenAI：
 
-**依赖：** 先执行 `go get github.com/anthropics/anthropic-sdk-go`
+- 配置化选择供应商（通过配置文件中的 `provider` 字段切换）
+- 流式输出支持，结果实时推送给 SSE 连接
+- **并行工具调用禁用**（Eino 配置 `parallel_tool_calls: false`），防止 Agent 并发调用工具产生幻觉
+- 错误处理：LLM 调用失败时通过 SSE 推送错误事件
 
-**工作内容：**
-
-- 实现 `Provider` 接口，封装 Anthropic SDK 的流式 Messages API
-- 将 `session.Message` 的 `user`/`assistant` 角色映射为 SDK 格式（`tool` 角色折叠进下一轮 user turn 作为上下文）
-- 将 `ai.Tool` 的 schema 转换为 Anthropic ToolParam 格式
-- 处理流式事件：文本 delta → `ChatChunk.Content`；工具调用 stop 事件 → `ChatChunk.ToolCall`
-- 根据 `StopReason` 设置 `FinishReason`（`tool_use` → `tool_calls`，其余 → `stop`）
-- 编写编译时接口检查测试（确保 `*Provider` 实现了 `ai.Provider`）
-
-**验收：** `go test ./internal/agent/ai/claude/...` 通过（编译检查即可，不需要真实 API Key）
+**验收：** 编译时接口检查通过，可跑通完整的流式对话和工具调用。
 
 ---
 
-### Task 7：OpenAI AI Provider
+### Task 7：工具层实现
 
-**文件：** `internal/agent/ai/openai/openai.go`、`openai_test.go`
+基于 Eino 的工具接口，实现 4 个工具：
 
-**依赖：** 先执行 `go get github.com/openai/openai-go`
+- **`explain_code`：** 从 Session 中读取指定代码块，附加最近执行结果（若有），返回供 AI 分析
+- **`debug_code`：** 同上，额外附加用户报告的报错信息
+- **`generate_tests`：** 返回代码块内容和语言，供 AI 生成测试用例
+- **`propose_execution`：** 先做语言标准化（调用 Task 3 中的函数），再在 Session 中写入 Proposal（含 `CallbackToken`、过期时间），返回 `proposal_id`
 
-**工作内容：**
+每个工具在 Eino 中注册时附带清晰的 `Use when` / `NOT for` 说明，帮助 AI 正确选择工具。
 
-- 实现 `Provider` 接口，封装 OpenAI SDK 的流式 Chat Completions API
-- **必须禁用并行工具调用**（`parallel_tool_calls: false`），防止 Agent 并发调用工具产生幻觉
-- 将 `session.Message` 映射为 OpenAI 消息格式，System prompt 单独传入
-- 使用 Accumulator 收集流式结果，结束后统一输出 ToolCall
-- 根据是否有工具调用设置 `FinishReason`
-- 编写编译时接口检查测试
-
-**验收：** `go test ./internal/agent/ai/openai/...` 通过
+**验收：** 工具测试覆盖合法 block_id、非法 block_id、不支持的语言、成功创建 Proposal 等场景。
 
 ---
 
-### Task 8：工具层实现
+### Task 8：Agent 编排与 /chat SSE 处理器
 
-**文件：** `internal/agent/tools/tools.go`、`tools_test.go`
+基于 Eino 的 Agent 编排能力，实现完整的对话流程：
 
-**依赖：** Task 2（Session 存储）完成并合并
+**编排逻辑：**
+- 注入待推送的执行结果（PendingResults）作为本轮上下文前缀
+- 上下文压缩：对话历史超过阈值时，使用 Eino 的上下文压缩机制（或 LLM 摘要）精简早期消息，文章上下文始终保留
+- System prompt 包含文章全文和代码块列表
+- 最大步数限制（防止无限循环）
 
-**工作内容：**
+**SSE 处理器：**
+- 首次请求需传入文章上下文（`article_id`、`article_content`、`code_blocks`），创建 Session 并在第一个 SSE 事件中返回 `session_id`
+- 后续请求携带 `session_id`，若同时传入文章上下文则视为重置（清空对话历史、覆盖文章内容）
+- 替换 SSEChan 前，向旧连接发送 `interrupted` 通知
+- SSE 连接在 `done` 事件后**保持打开**（等待异步执行结果），仅在 `interrupted` 或客户端断开时关闭
 
-实现 `Registry`，提供工具定义（schema）和工具执行两个能力：
-
-- **工具定义：** 返回 4 个工具的 JSON Schema，每个工具附带 `Use when` / `NOT for` 说明，`propose_execution` 的 `language` 字段枚举值限定为 5 种合法语言
-- **工具执行：** 根据工具名分发调用
-  - `explain_code(block_id)`：从 Session 中查找代码块，附加最近执行结果（若有）
-  - `debug_code(block_id, error_message)`：同上，附加报错信息
-  - `generate_tests(block_id)`：返回代码块内容和语言
-  - `propose_execution(new_code, language, description)`：先做语言标准化（调用 Task 3 中的函数），再调用 Store 的 `AddProposal`，返回 `proposal_id`
-- 编写测试：覆盖合法 block_id、非法 block_id、不支持的语言、成功创建 Proposal 等场景
-
-**验收：** `go test ./internal/agent/tools/...` 通过
-
----
-
-### Task 9：Agent 服务（ReAct 循环）
-
-**文件：** `internal/agent/service/agent.go`、`agent_test.go`
-
-**依赖：** Task 6、7（AI Provider）、Task 8（工具层）
-
-**工作内容：**
-
-- 导出 `AgentService` 接口（供 handler 和 router 依赖），构造函数返回接口类型
-- `Chat()` 方法流程：
-  1. 读取并清空 `PendingResults`，将结果前缀注入本轮 user message
-  2. 上下文压缩检查（每次 LLM 调用前）：历史消息 token 估算（字符数 ÷ 4）超过阈值时，保留最近 3 条消息，对更早的历史发起额外 LLM 调用生成摘要替换；文章上下文始终保留不压缩；压缩失败则跳过
-  3. 构建 system prompt（嵌入文章内容和代码块列表）
-  4. ReAct 循环（最多 `maxSteps` 次）：调用 AI Provider → 流式输出文本 chunk → 检测工具调用 → 执行工具 → 追加工具结果 → 继续推理
-  5. `FinishReason` 为 `stop` 或无工具调用时发送 `done` 事件退出
-  6. 超过最大步数时发送错误事件退出
-- 编写测试：使用 mock Provider，覆盖纯文本响应、最大步数限制（避免无限循环）等场景
-
-**验收：** `go test ./internal/agent/service/...` 通过
+**验收：** 测试覆盖纯文本响应、工具调用循环、最大步数限制、SSE 连接生命周期管理。
 
 ---
 
@@ -244,83 +177,32 @@ internal/agent/router/router.go            新建 — Gin 路由装配
 
 ---
 
-### Task 10：/chat SSE 处理器 + 鉴权中间件
+### Task 9：鉴权中间件与路由
 
-**文件：** `internal/agent/handler/chat.go`、`chat_test.go`、`middleware.go`
-
-**工作内容：**
-
-- **鉴权中间件：** 读取请求头 `X-Agent-API-Key`，与配置值比对，不一致返回 401
-- **chat 处理器：**
-  - 首次请求（`session_id` 为空）：要求 `article_ctx.article_id` 非空，创建 Session，生成 `session_id`
-  - 后续请求：按 `session_id` 查找 Session；若同时传入非空 `article_ctx`，调用 `OverrideArticleContext`（清空历史消息、覆盖文章上下文）
-  - 替换 SSEChan：先通过 `ReplaceSSEChan` 拿到旧 channel，若旧 channel 非空则发送 `interrupted` 事件通知旧连接关闭
-  - 设置响应头（`text/event-stream`、`Cache-Control: no-cache`、`Connection: keep-alive`）
-  - 首次请求在第一个 SSE chunk 中返回 `session_id`
-  - 使用 `c.Stream` 保持连接：**`done` 事件不关闭连接**（仅标志本轮 AI 回复完成），`interrupted` 事件才关闭连接；客户端断开（`ctx.Done()`）时清空 SSEChan
-- 编写测试：覆盖首次请求返回 session_id、SSE content-type、401 无 Key 场景
-
-**验收：** `go test ./internal/agent/handler/... -v -race` 通过
+- 鉴权中间件：读取 `X-Agent-API-Key` 请求头，不匹配返回 401
+- 路由：`/metrics`（无需鉴权）、`/internal/callback`（callback_token 验证）、`/chat`（需 API Key）、`/confirm`（需 API Key）
+- 注册 Recovery 中间件防止 panic
 
 ---
 
-### Task 11：路由装配
+### Task 10：服务入口与端到端冒烟测试
 
-**文件：** `internal/agent/router/router.go`
+**服务入口：** 根据配置初始化 Eino + AI Provider，连接 CodeRunner gRPC，启动 HTTP 服务，监听信号优雅退出。
 
-**工作内容：**
-
-- 使用 Gin 装配所有路由：
-  - `GET /metrics`：Prometheus 指标（无需鉴权）
-  - `POST /internal/callback`：回调接口（callback_token 鉴权，无需 API Key）
-  - `POST /chat`（需 API Key）
-  - `POST /confirm`（需 API Key）
-- 注册 `gin.Recovery()` 中间件防止 panic 导致服务崩溃
-
-**验收：** `go build ./internal/agent/router/...` 通过
-
----
-
-### Task 12：服务入口
-
-**文件：** `cmd/agent/main.go`
-
-**工作内容：**
-
-- 加载配置，根据 `agent.provider` 字段初始化 Claude 或 OpenAI Provider
-- 初始化 Session Store（使用配置中的 Session TTL）
-- 初始化 CodeRunner gRPC 客户端（启动时即获取初始 Token，失败则退出）
-- 注册 Prometheus 指标（`agent_chat_duration_seconds`、`agent_tool_calls_total`、`agent_sessions_active`）
-- 装配所有依赖，启动 HTTP 服务
-- 监听 SIGINT/SIGTERM，30 秒优雅退出
-
-**验收：** `go build ./cmd/agent/...` 通过
-
----
-
-### Task 13：端到端冒烟测试
-
-**工作内容：**
-
-逐一验证以下场景：
+**冒烟测试验证以下场景：**
 
 1. 无 API Key 调用 `/chat` → 返回 401
-2. 首次 `/chat` 传入 `article_ctx` → SSE 第一个事件包含 `session_id`，后续有 `chunk` 和 `done` 事件
-3. 调用 `/confirm` 传入不存在的 `session_id` → 返回 404
-4. 调用 `/confirm` 传入已过期的 `proposal_id` → 返回 410
-5. `/metrics` 端点返回 Prometheus 指标
-6. 运行所有单元测试，无竞态警告：`go test ./internal/agent/... -race -count=1`
+2. 首次 `/chat` 传入文章上下文 → SSE 第一个事件包含 `session_id`，后续有文本流和 `done`
+3. `/confirm` 传入不存在的 session → 404；过期的 proposal → 410
+4. `/metrics` 返回 Prometheus 指标
+5. 所有单元测试通过，无竞态警告：`go test ./... -race -count=1`
 
 ---
 
 ## 开发前置步骤
 
-两位开发者都需要先执行：
+两位开发者需要先完成：
 
-```bash
-go get github.com/anthropics/anthropic-sdk-go
-go get github.com/openai/openai-go
-go mod tidy
-```
-
-并设置本地开发环境变量（参考 `configs/agent.yaml` 中的字段说明）。
+1. 共同决定代码组织方案并初始化项目结构（Task 0）
+2. 引入 Eino 依赖：`go get github.com/cloudwego/eino`
+3. 根据 `docs/superpowers/specs/2026-03-28-agent-design.md` 设置本地环境变量
