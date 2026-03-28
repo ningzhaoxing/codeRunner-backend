@@ -168,8 +168,7 @@ Tools available:
 | 决策点 | 设计选择 | 理由 |
 |--------|---------|------|
 | 会话持久化 | 内存 `sync.Map`，TTL 1 小时 | 用户读完一篇文章足够；无需引入 Redis |
-| 上下文压缩 | 对话历史（不含文章上下文）超过 **8000 tokens** 时，通过额外 LLM 调用生成摘要替换早期历史；文章上下文始终保留 | 防止历史消息溢出，保持文章感知 |
-| 断连处理 | SSE 写入失败 → 立即 cancel Agent context → 停止 LLM 调用 | 避免资源浪费 |
+| 上下文压缩 | **触发**：每次 LLM 调用前检查；**计数**：字符数 ÷ 4 估算；**策略**：保留最近 3 条消息，对更早历史调用额外 LLM 生成摘要替换；文章上下文始终不压缩；**失败**：跳过压缩继续（可能被 provider 因超长拒绝，返回 error chunk） | 防止历史消息溢出，保持文章感知 |
 | 并发 /chat 处理 | 同一 `session_id` 收到新 `/chat` 请求时：向旧 SSE 连接推送 `{"type":"interrupted"}` 并关闭，替换 `SSEChan`，新请求使用新连接继续 | 防止 SSEChan 被覆盖导致旧流悬挂 |
 | 断连后 callback 到达 | callback 写入 `ExecutionResults` 后，若 `SSEChan` 为 nil 或已关闭，暂存结果；用户下次 `/chat` 时，Agent 在 system message 中注入 "上次执行结果" 继续推理 | 避免结果丢失 |
 | 可观测性 | Prometheus + 请求链路 ID | 独立服务独立监控 |
@@ -197,6 +196,18 @@ Tools available:
 #### AgentSession 数据结构
 
 ```go
+type ArticleContext struct {
+    ArticleID      string
+    ArticleContent string       // 文章正文（Markdown）
+    CodeBlocks     []CodeBlock
+}
+
+type CodeBlock struct {
+    BlockID  string
+    Language string
+    Code     string
+}
+
 type AgentSession struct {
     ID               string
     ArticleID        string
@@ -238,7 +249,9 @@ type ExecResult struct {
   2. `proposal_id` 不存在 → HTTP 404
   3. `Proposal.ExpiresAt` 已过 → HTTP 410 Gone
   4. `Confirmed` 已为 `true` → HTTP 409 Conflict（防重复提交）
-  5. 标记 `Confirmed = true`，向 CodeRunner 发起 gRPC `Execute` 调用
+  5. 标记 `Confirmed = true`，立即返回 HTTP 200（`{"request_id":"...","status":"accepted"}`）
+  6. 在后台 goroutine 中向 CodeRunner 发起 gRPC `Execute` 调用（异步，不阻塞 /confirm 响应）
+     - gRPC 调用失败：通过 SSEChan 推送 `{"type":"error","message":"..."}` 或写入 PendingResults
 
 #### 对 CodeRunner 的鉴权
 
@@ -253,6 +266,14 @@ Agent 的 token 管理策略：
 ---
 
 ### 3.4 HTTP API 定义
+
+**鉴权**：`POST /chat` 和 `POST /confirm` 均需在请求头携带 API Key：
+
+```text
+X-Agent-API-Key: {api_key}
+```
+
+`api_key` 在 `configs/agent.yaml` 中通过环境变量配置（`${AGENT_API_KEY}`）。校验失败返回 HTTP 401。`POST /internal/callback` 通过 `token` query 参数鉴权（见 callback_token 机制），不需要 API Key。
 
 #### `POST /chat`
 
@@ -274,18 +295,24 @@ Agent 的 token 管理策略：
 
 **响应**：`Content-Type: text/event-stream`（SSE）
 
+SSE 连接生命周期：**连接在 `done` 事件后保持打开**，继续监听异步事件（如 `execution_result`）。前端在用户离开文章页面时主动关闭连接，或收到 `interrupted` 时重新发起 `/chat`。`done` 仅表示"本轮 AI 回复完成，可提交下一条消息"，不关闭连接。
+
 ```text
-data: {"type":"session","session_id":"uuid-v4"}
+data: {"type":"session","session_id":"uuid-v4"}   （首次，携带 session_id）
 
 data: {"type":"chunk","content":"这段代码报错的原因是..."}
 
 data: {"type":"proposal","proposal_id":"uuid-v4","code":"...","language":"golang","description":"修复了数组越界"}
 
-data: {"type":"interrupted"}   （仅当此流被新 /chat 请求取代时发送）
+data: {"type":"done"}   （本轮回复结束，连接保持打开）
 
-data: {"type":"error","message":"..."}   （LLM 调用失败时）
+... 用户点击"确认运行" → POST /confirm → 异步执行 → callback 到达 ...
 
-data: {"type":"done"}
+data: {"type":"execution_result","proposal_id":"uuid-v4","result":"Hello World","err":""}
+
+data: {"type":"interrupted"}   （仅当同 session 发起新 /chat 时，取代旧连接前发送）
+
+data: {"type":"error","message":"..."}   （LLM 调用失败或 gRPC 调用失败时）
 ```
 
 #### `POST /confirm`
@@ -397,7 +424,8 @@ type AIProvider interface {
 ```yaml
 server:
   port: 8081
-  internal_base_url: "http://localhost:8081"  # 构造 callback URL 用
+  internal_base_url: "http://localhost:8081"
+  api_key: ${AGENT_API_KEY}               # /chat 和 /confirm 鉴权
 
 coderunner:
   grpc_addr: "coderunner-server:50011"
