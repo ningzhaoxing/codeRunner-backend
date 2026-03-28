@@ -118,9 +118,15 @@ CodeRunner AgentService（新增）
 
 **执行结果的存储**：
 
-当 AgentService 调用内部 `Execute()` 时，使用一个 Agent 内部专属回调地址（复用现有 Gin 路由，新增 `POST /internal/agent/callback`）作为 `callBackUrl`。执行完成后，内部回调将结果写入 `AgentSession.ExecutionResults["proposal:{proposal_id}"]`，供后续 Tool 调用（`explain_code`、`debug_code`）通过此 key 读取。
+当 AgentService 调用内部 `Execute()` 时，构造如下内部回调地址（复用现有 Gin 路由，新增路由 `POST /internal/agent/callback`）作为 `callBackUrl`：
 
-若客户端在 `AgentConfirmRequest.callback_url` 中提供了非空 URL，内部回调在写入 session 后**同时转发**给该 URL（与原有 Execute 回调格式完全一致），确保博客前端的 SSE 通知正常工作。`callback_url` 字段为**可选**：若为空，结果仅写入 session，Agent 在下一轮对话中引用。
+```text
+http://localhost:{port}/internal/agent/callback?session_id={session_id}&proposal_id={proposal_id}
+```
+
+执行完成后，executor 将结果 POST 到此 URL。内部回调 handler 从 query 参数中读取 `session_id` 定位 session，读取 `proposal_id` 构造存储 key，将结果写入 `AgentSession.ExecutionResults["proposal:{proposal_id}"]`，供后续 Tool 调用（`explain_code`、`debug_code`）通过此 key 读取。
+
+若客户端在 `AgentConfirmRequest.callback_url` 中提供了非空 URL，内部回调 handler 在写入 session 后**同时转发**原始 payload 给该 URL（与原有 Execute 回调格式完全一致），确保博客前端的 SSE 通知正常工作。`callback_url` 字段为**可选**：若为空，结果仅写入 session，Agent 在下一轮对话中引用。
 
 **行动空间隔离**：
 
