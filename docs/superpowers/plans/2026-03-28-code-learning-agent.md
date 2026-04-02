@@ -21,7 +21,9 @@
 > **关键约束**：`POST /confirm` 必须立即返回（202 语义），gRPC Execute 异步执行；SSE 连接在 `done` 事件后保持打开，等待 `execution_result` 异步推送；同一 `session_id` 的新 `/chat` 请求会向旧连接发送 `interrupted` 后替换连接。
 
 **MVP 包含：**
-- 四个 Skill：`explain-code`、`debug-code`、`generate-tests`、`propose-execution`
+
+- 一个 Go Tool Skill：`propose-execution`（有真实副作用：生成 Proposal、推送 SSE 事件）
+- 三种对话行为（`explain-code`、`debug-code`、`generate-tests`）通过 System Prompt 指令实现，无需 tool call
 - Session 内存存储（TTL 1 小时）
 - CodeRunner gRPC 集成（含 Token 自动刷新）
 - SSE 流式输出与 `interrupted` 机制
@@ -94,9 +96,6 @@ AgentService.Stream()（agent.go）
     ├── Eino ReAct Loop（Eino v0.x）
     │   ├── Claude / OpenAI ModelProvider（流式）
     │   └── Skill Middleware
-    │       ├── explain-code         # → 读取 Session 中代码块
-    │       ├── debug-code           # → 读取代码块 + 最近执行结果
-    │       ├── generate-tests       # → 读取代码块
     │       └── propose-execution    # → 写入 Proposal（含 CallbackToken）
     ├── ChatModelAgentMiddleware 钩子
     │   ├── AfterChatModel           # 注入 chunk / proposal / done 事件
@@ -112,58 +111,41 @@ CodeRunner gRPC Execute（confirm 异步触发）
 
 ## 3. Skill 设计
 
-### Skill 1：`explain-code`
+前三种对话行为（`explain-code`、`debug-code`、`generate-tests`）**不实现为 Go Tool**。博客全文和所有代码块已在首次 `/chat` 时嵌入 System Prompt，LLM 可直接引用，无需 tool call 取数据。对应的行为指令（`Use when` / `NOT for`）写入 System Prompt，指导 LLM 在合适时机输出相应内容。
 
-接收 `block_id`，从 Session 中读取对应代码块内容、语言和最近一次执行结果（若有），返回结构化上下文供 LLM 生成解释。LLM 据此结合文章背景对代码功能、设计意图进行解读。
+---
+
+### 对话行为 1：`explain-code`（Prompt 指令）
 
 ```text
 Use when: 用户询问某段代码是什么意思；用户问"为什么这样写"；用户希望理解代码的行为或设计
-NOT for: 修复 bug；生成新代码；解释报错信息（用 debug-code）
+NOT for: 修复 bug；生成新代码；解释报错信息（应走 debug-code 行为）
+行为：直接从已嵌入的代码块中引用对应代码，结合文章背景解释其功能与设计意图
 ```
-
-Skill 实现（Go Tool）：
-
-- 输入：`block_id`
-- 执行：从 Session 的 `ArticleCtx.CodeBlocks` 中查找代码块；附加 `ExecutionResults["proposal:{pid}"]` 中最近一次执行的 `result`（若有）
-- 输出：`{ "language": "golang", "code": "...", "last_output": "..." }`
 
 ---
 
-### Skill 2：`debug-code`
-
-接收 `block_id` 和用户描述的 `error_message`，读取代码块及最近执行结果，为 LLM 提供完整的调试上下文（代码 + 报错 + 实际输出）。
+### 对话行为 2：`debug-code`（Prompt 指令）
 
 ```text
 Use when: 用户报告代码报错；用户说"跑不起来"；用户描述了非预期的运行结果
-NOT for: 解释正常运行的代码逻辑（用 explain-code）；生成测试（用 generate-tests）
+NOT for: 解释正常运行的代码逻辑（走 explain-code）；生成测试（走 generate-tests）
+行为：直接引用已嵌入的代码块及执行结果（若有），分析报错原因，给出修复建议
 ```
-
-Skill 实现（Go Tool）：
-
-- 输入：`block_id`，`error_message`
-- 执行：同 `explain-code`，额外附加 `error_message` 和完整执行输出（`result` + `err`）
-- 输出：`{ "language": "golang", "code": "...", "error_reported": "...", "last_output": "...", "last_err": "..." }`
 
 ---
 
-### Skill 3：`generate-tests`
-
-接收 `block_id`，返回代码块内容和语言，供 LLM 生成边界测试用例。LLM 生成的测试代码可通过后续的 `propose-execution` 提交运行。
+### 对话行为 3：`generate-tests`（Prompt 指令）
 
 ```text
 Use when: 用户要求生成测试用例；用户说"帮我验证这个函数的边界情况"
 NOT for: 直接运行测试（需用户通过 propose-execution 确认后再运行）；解释代码逻辑
+行为：直接引用已嵌入的代码块，生成边界测试代码，随后调用 propose-execution 工具提交执行
 ```
-
-Skill 实现（Go Tool）：
-
-- 输入：`block_id`
-- 执行：从 Session 读取代码块
-- 输出：`{ "language": "golang", "code": "..." }`
 
 ---
 
-### Skill 4：`propose-execution`
+### Skill 4：`propose-execution`（Go Tool）
 
 当 LLM 准备好一段具体可运行的代码时调用。在 Session 中创建 Proposal 记录（含 `CallbackToken`、过期时间），向前端推送 `proposal` SSE 事件，等待用户通过 `POST /confirm` 确认后异步触发 CodeRunner 执行。
 
@@ -184,7 +166,7 @@ Skill 实现（Go Tool）：
 
 **LLM 输入（每轮）：**
 
-- System Prompt：内嵌文章全文 + 所有代码块列表（block_id、语言、代码内容）+ 4 个 Skill 的 `Use when` / `NOT for` 说明
+- System Prompt：内嵌文章全文 + 所有代码块列表（block_id、语言、代码内容）+ 三种对话行为的 `Use when` / `NOT for` 指令 + `propose-execution` 工具说明
 - SmartMemory 注入的历史对话（超过 8000 token 时自动压缩早期消息为摘要）
 - 若有待推送的执行结果（PendingResults），前置注入为本轮 user message 的上下文前缀
 
@@ -303,15 +285,15 @@ data: {"type":"interrupted"}
 
 ---
 
-### 决策 2：不使用 Python 脚本，Skill 以 Go Tool 实现
+### 决策 2：三种对话行为通过 Prompt 指令实现，仅 `propose-execution` 为 Go Tool
 
-**结论**：4 个 Skill 均为 Go 原生 Tool，通过 Eino Tool 接口注册。
+**结论**：`explain-code`、`debug-code`、`generate-tests` 不实现为 Go Tool；`propose-execution` 作为唯一 Go Tool 通过 Eino Tool 接口注册。
 
 **原因**：
 
-- 本 Agent 的 Skill 操作的是 Go 内存结构（Session、CodeBlock），不需要跨进程调用外部脚本
-- Go 原生实现省去进程启动开销，延迟更低
-- 避免在纯 Go 微服务中引入 Python 运行时依赖
+- 前三种行为本质上只是"取代码块数据给 LLM"——而博客全文和代码块已在首次 `/chat` 时嵌入 System Prompt，LLM 直接可见，tool call 取数据是多余的
+- 去掉三个 Go Tool 大幅简化实现，减少 ReAct 轮次，降低延迟
+- `propose-execution` 有真实副作用（生成 proposal_id、写入 Session、推送 SSE 事件），必须作为 Tool 实现
 
 ---
 
@@ -373,15 +355,15 @@ data: {"type":"interrupted"}
 
 **在 Iter 0 基础上新增**：
 
-- 4 个 Skill 注册到 Eino ReAct（`explain-code`、`debug-code`、`generate-tests`、`propose-execution`）
-- 文章上下文（`article_ctx`）注入 Session 与 System Prompt
+- `propose-execution` Go Tool 注册到 Eino ReAct
+- 文章上下文（`article_ctx`）及三种对话行为指令注入 System Prompt
 - `propose-execution` 写入 Proposal，推送 `proposal` SSE 事件
 - 上下文压缩（超过 8000 token 时压缩历史）
 - `interrupted` 机制（新 `/chat` 替换旧 SSE 连接）
 
 **不做**：用户确认执行（`/confirm`）、CodeRunner 集成
 
-**验证**：传入包含 Go 代码的文章 → 问"这段代码为什么会 panic？" → Agent 调用 `debug-code` Skill → 给出修复建议 → 前端收到 `proposal` 事件（含代码和说明）。
+**验证**：传入包含 Go 代码的文章 → 问"这段代码为什么会 panic？" → Agent 直接基于 prompt 中的代码分析，给出修复建议，调用 `propose-execution` Tool → 前端收到 `proposal` 事件（含代码和说明）。
 
 ---
 
@@ -418,6 +400,6 @@ data: {"type":"interrupted"}
 | 迭代 | 交付物 | 累计可用能力 | 预估 |
 | --- | --- | --- | --- |
 | Iter 0 | 服务启动 + SSE 流式回复 | 自然语言对话（无工具） | 3d |
-| Iter 1 | 4 个 Skill + 文章上下文 | 调试/解释/测试建议 + proposal 事件 | 4d |
+| Iter 1 | propose-execution Tool + 文章上下文 + 对话行为 Prompt | 调试/解释/测试建议 + proposal 事件 | 3d |
 | Iter 2 | /confirm + CodeRunner + 回调 | 端到端代码执行与结果反馈 | 3d |
 | Iter 3 | 加固 + 指标 + 测试 | 生产就绪 | 2d |
