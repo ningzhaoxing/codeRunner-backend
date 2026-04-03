@@ -1,3 +1,11 @@
+---
+title: 架构优化迭代方案
+type: design
+status: approved
+created: 2026-04-01
+updated: 2026-04-01
+---
+
 # 架构优化迭代方案
 
 > 本文档记录当前架构的可优化点，作为后续迭代的参考路线图。  

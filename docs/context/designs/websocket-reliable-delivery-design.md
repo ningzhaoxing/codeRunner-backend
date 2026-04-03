@@ -1,3 +1,11 @@
+---
+title: WebSocket 请求可靠投递 ACK 确认机制
+type: design
+status: approved
+created: 2026-03-27
+updated: 2026-03-27
+---
+
 # WebSocket 请求可靠投递：ACK 确认机制
 
 ## 问题背景
