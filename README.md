@@ -59,7 +59,10 @@ coderunner/
 ├── cmd/api/                   # 应用入口（Server/Client 模式切换）
 ├── api/proto/                 # gRPC protobuf 定义及生成代码
 ├── configs/                   # 配置文件（dev.yaml / product.yaml）
-├── docs/                      # 文档（issues、优化迭代记录）
+├── docs/                      # 文档
+│   ├── context/               # 上下文文档（PRD / 技术方案 / TestPlan）
+│   ├── agents/                # Agent 工作流定义
+│   └── references/            # 参考资料（issues 等）
 ├── builds/                    # 各语言 Docker 镜像构建文件
 ├── docker-compose/            # 容器编排配置
 └── internal/
@@ -105,7 +108,7 @@ coderunner/
 
 ### 环境要求
 
-- Go 1.21+
+- Go 1.23+
 - ETCD 3.5+
 - Docker 24.0+
 
@@ -138,14 +141,14 @@ go run cmd/api/main.go
 
 | 组件 | 技术 |
 |------|------|
-| 语言 | Go 1.21+ |
+| 语言 | Go 1.23+ |
 | 架构 | DDD (领域驱动设计) |
 | RPC | gRPC |
 | 实时通信 | WebSocket (Gorilla) |
 | 服务发现 | ETCD |
 | 容器化 | Docker SDK |
 | 配置管理 | Viper |
-| 日志 | Logrus + Zap |
+| 日志 | Zap |
 | 消息推送 | SSE |
 
 ## 核心流程
@@ -214,6 +217,20 @@ load = √(ewma_发送延迟 + 1) × (在途请求数 + 1) / 权重
 3. **单一职责**: 每个包职责清晰
 4. **测试覆盖**: 核心业务逻辑需要单元测试
 5. **错误处理**: 使用 Go 的错误处理机制，不使用 panic
+
+## 文档体系
+
+项目采用 **Spec-Driven Development（SDD）** 工作流，详见 [CLAUDE.md](CLAUDE.md)。
+
+| 类别 | 路径 | 说明 |
+|------|------|------|
+| 需求文档 | `docs/context/requirements/` | PRD（由 PRD Agent 产出） |
+| 技术方案 | `docs/context/designs/` | 架构设计与实现方案 |
+| 测试计划 | `docs/context/test-plans/` | 验收标准与测试策略 |
+| Agent 定义 | `docs/agents/` | PRD / 技术方案 / TestPlan Agent 工作流 |
+| 问题追踪 | `docs/references/issues.md` | Bug 与改进项 |
+
+**新功能开发流程：** PRD Agent → 技术方案 Agent → TestPlan Agent → 编码 → 验收
 
 ## License
 
