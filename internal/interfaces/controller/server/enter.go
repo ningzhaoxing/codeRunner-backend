@@ -5,5 +5,5 @@ import (
 )
 
 type EndpointCtl struct {
-	Srv server.Service
+	Srv server.ServerService
 }
