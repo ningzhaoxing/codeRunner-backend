@@ -8,6 +8,7 @@ import (
 	"codeRunner-siwu/internal/domain/server/service"
 	"codeRunner-siwu/internal/infrastructure/balanceStrategy/p2cBalance"
 	"codeRunner-siwu/internal/infrastructure/common/token"
+	"codeRunner-siwu/internal/infrastructure/config"
 	docker "codeRunner-siwu/internal/infrastructure/containerBasic"
 	client2 "codeRunner-siwu/internal/infrastructure/websocket/client"
 	"codeRunner-siwu/internal/interfaces/controller"
@@ -32,13 +33,13 @@ func serverServiceRegister() {
 	controller.InitSrbInject(srv, tokenSrv)
 }
 
-func clientServiceRegister() (*client.ServiceImpl, error) {
+func clientServiceRegister(poolCfg config.ContainerPoolConfig) (*client.ServiceImpl, error) {
 	/*
 		依赖注入
 	*/
 
 	// docker客户端
-	dockerClient := docker.NewDockerClient()
+	dockerClient := docker.NewDockerClient(poolCfg)
 	// docker容器
 	containerTmpl := docker.NewRunCode(dockerClient)
 	// websocket客户端

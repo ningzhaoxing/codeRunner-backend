@@ -63,7 +63,7 @@ func RunClient() {
 		panic("日志文件解析错误" + err.Error())
 		return
 	}
-	srv, err := clientServiceRegister()
+	srv, err := clientServiceRegister(c.Client.ContainerPool)
 	if err != nil {
 		panic("服务注册失败,原因:" + err.Error())
 	}
