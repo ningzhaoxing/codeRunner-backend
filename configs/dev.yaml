@@ -19,6 +19,12 @@ client:
     path: "ws"
   app:
     weight: 1
+  container_pool:
+    golang: 1
+    python: 1
+    javascript: 1
+    java: 1
+    c: 1
 
 logger:
   level: "info"
