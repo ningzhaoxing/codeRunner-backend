@@ -39,6 +39,33 @@ type ClientConfig struct {
 	App struct {
 		Weight int64 `yaml:"weight"`
 	} `yaml:"app"`
+	ContainerPool ContainerPoolConfig `yaml:"container_pool"`
+}
+
+type ContainerPoolConfig struct {
+	Golang     int `yaml:"golang"`
+	Python     int `yaml:"python"`
+	JavaScript int `yaml:"javascript"`
+	Java       int `yaml:"java"`
+	C          int `yaml:"c"`
+}
+
+// ToPoolSizes 转换为 map[string]int，供 NewContainerPool 使用
+func (c ContainerPoolConfig) ToPoolSizes() map[string]int {
+	m := map[string]int{
+		"golang":     c.Golang,
+		"python":     c.Python,
+		"javascript": c.JavaScript,
+		"java":       c.Java,
+		"c":          c.C,
+	}
+	// 默认值：未配置时每种语言 1 个容器（退化为当前行为）
+	for k, v := range m {
+		if v <= 0 {
+			m[k] = 1
+		}
+	}
+	return m
 }
 
 type LoggerConfig struct {
