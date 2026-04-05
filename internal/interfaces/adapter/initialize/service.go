@@ -33,7 +33,7 @@ func serverServiceRegister() {
 	controller.InitSrbInject(srv, tokenSrv)
 }
 
-func clientServiceRegister(poolCfg config.ContainerPoolConfig) (*client.ServiceImpl, error) {
+func clientServiceRegister(poolCfg config.ContainerPoolConfig) (*client.ServiceImpl, *docker.ContainerPool, error) {
 	/*
 		依赖注入
 	*/
@@ -49,5 +49,5 @@ func clientServiceRegister(poolCfg config.ContainerPoolConfig) (*client.ServiceI
 	// 服务
 	clientSvr := client.NewServiceImpl(InnerServerDomainImpl)
 
-	return clientSvr, nil
+	return clientSvr, dockerClient.Pool(), nil
 }

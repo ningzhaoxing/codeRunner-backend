@@ -4,7 +4,11 @@ import (
 	"context"
 	"fmt"
 	etcd "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 func RunServer() {
@@ -63,10 +67,20 @@ func RunClient() {
 		panic("日志文件解析错误" + err.Error())
 		return
 	}
-	srv, err := clientServiceRegister(c.Client.ContainerPool)
+	srv, pool, err := clientServiceRegister(c.Client.ContainerPool)
 	if err != nil {
 		panic("服务注册失败,原因:" + err.Error())
 	}
+
+	// 优雅关停：监听系统信号
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigCh
+		zap.S().Info("收到关停信号，正在关闭容器池...")
+		pool.Close()
+		os.Exit(0)
+	}()
 
 	if err := srv.Run(*c); err != nil {
 		log.Println(fmt.Sprintf("服务启动失败err=%s\n", err))
