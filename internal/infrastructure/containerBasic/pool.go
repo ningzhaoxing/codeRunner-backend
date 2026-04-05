@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"sync/atomic"
+	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"go.uber.org/zap"
 
 	cErrors "codeRunner-siwu/internal/infrastructure/common/errors"
+	"codeRunner-siwu/internal/infrastructure/metrics"
 )
 
 // ContainerSlot 表示池中一个容器的完整信息
@@ -68,6 +70,11 @@ func newContainerPool(cli *client.Client, poolSizes map[string]int, images map[s
 
 // Acquire 从池中取出一个空闲容器
 func (p *ContainerPool) Acquire(ctx context.Context, lang string) (ContainerSlot, error) {
+	start := time.Now()
+	defer func() {
+		metrics.PoolAcquireDuration.WithLabelValues(lang).Observe(time.Since(start).Seconds())
+	}()
+
 	if p.closed.Load() {
 		return ContainerSlot{}, cErrors.ErrContainerPoolClosed
 	}
@@ -97,9 +104,11 @@ func (p *ContainerPool) Release(lang string, slot ContainerSlot, healthy bool) {
 	}
 	if healthy {
 		lp.idle <- slot
+		metrics.PoolIdleGauge.WithLabelValues(lang).Set(float64(len(lp.idle)))
 		return
 	}
 	go p.replenish(lp, slot)
+	metrics.PoolIdleGauge.WithLabelValues(lang).Set(float64(len(lp.idle)))
 }
 
 // Close 优雅关停
@@ -134,6 +143,7 @@ func (p *ContainerPool) replenish(lp *langPool, slot ContainerSlot) {
 			"container", slot.Name,
 			"attempt", attempt,
 		)
+		metrics.PoolReplenishTotal.WithLabelValues(lp.lang, "success").Inc()
 		if !p.closed.Load() {
 			lp.idle <- slot
 		}
@@ -145,6 +155,7 @@ func (p *ContainerPool) replenish(lp *langPool, slot ContainerSlot) {
 		"language", lp.lang,
 		"maxRetries", maxRetries,
 	)
+	metrics.PoolReplenishTotal.WithLabelValues(lp.lang, "failure").Inc()
 }
 
 // IdleCount 返回指定语言的空闲容器数（用于 metrics）
