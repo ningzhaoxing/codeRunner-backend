@@ -13,12 +13,12 @@ services:
       - DOCKER_HOST=unix:///var/run/docker.sock
 
   # Runner 容器：长期运行，由 docker-compose 统一管理资源限制
-  code-runner-go:
+  code-runner-go-0:
     image: code-runner-go:latest
     build:
       context: .
       dockerfile: builds/runners/go.Dockerfile
-    container_name: code-runner-go
+    container_name: code-runner-go-0
     command: sleep infinity
     restart: unless-stopped
     network_mode: none
@@ -28,14 +28,14 @@ services:
     memswap_limit: 512m
     cpus: "1.0"
     volumes:
-      - /tmp/golang:/app
+      - /tmp/golang-0:/app
 
-  code-runner-python:
+  code-runner-python-0:
     image: code-runner-python:latest
     build:
       context: .
       dockerfile: builds/runners/python.Dockerfile
-    container_name: code-runner-python
+    container_name: code-runner-python-0
     command: sleep infinity
     restart: unless-stopped
     network_mode: none
@@ -45,14 +45,14 @@ services:
     memswap_limit: 512m
     cpus: "1.0"
     volumes:
-      - /tmp/python:/app
+      - /tmp/python-0:/app
 
-  code-runner-cpp:
+  code-runner-cpp-0:
     image: code-runner-cpp:latest
     build:
       context: .
       dockerfile: builds/runners/cpp.Dockerfile
-    container_name: code-runner-cpp
+    container_name: code-runner-cpp-0
     command: sleep infinity
     restart: unless-stopped
     network_mode: none
@@ -62,14 +62,14 @@ services:
     memswap_limit: 512m
     cpus: "1.0"
     volumes:
-      - /tmp/c:/app
+      - /tmp/c-0:/app
 
-  code-runner-java:
+  code-runner-java-0:
     image: code-runner-java:latest
     build:
       context: .
       dockerfile: builds/runners/java.Dockerfile
-    container_name: code-runner-java
+    container_name: code-runner-java-0
     command: sleep infinity
     restart: unless-stopped
     network_mode: none
@@ -79,14 +79,14 @@ services:
     memswap_limit: 512m
     cpus: "1.0"
     volumes:
-      - /tmp/java:/app
+      - /tmp/java-0:/app
 
-  code-runner-js:
+  code-runner-js-0:
     image: code-runner-js:latest
     build:
       context: .
       dockerfile: builds/runners/js.Dockerfile
-    container_name: code-runner-js
+    container_name: code-runner-js-0
     command: sleep infinity
     restart: unless-stopped
     network_mode: none
@@ -96,4 +96,4 @@ services:
     memswap_limit: 512m
     cpus: "1.0"
     volumes:
-      - /tmp/javascript:/app
+      - /tmp/javascript-0:/app
