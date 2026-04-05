@@ -1,15 +1,20 @@
 package containerBasic
 
 import (
-	"codeRunner-siwu/api/proto"
-	"codeRunner-siwu/internal/infrastructure/metrics"
+	"context"
+	"errors"
 	"fmt"
-	"github.com/google/uuid"
-	"go.uber.org/zap"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"go.uber.org/zap"
+
+	proto "codeRunner-siwu/api/proto"
+	cErrors "codeRunner-siwu/internal/infrastructure/common/errors"
+	"codeRunner-siwu/internal/infrastructure/metrics"
 )
 
 type Container interface {
@@ -56,7 +61,7 @@ func (r *runCode) getFileExtension(lang string) *runCode {
 // 创建目录
 func (r *runCode) createBlockContent(path string) *runCode {
 	if r.err != nil {
-		log.Println("获取拓展名失败 err=", r.err)
+		zap.S().Error("获取拓展名失败 err=", r.err)
 		return r
 	}
 	r.err = os.MkdirAll(path, 0775)
@@ -67,7 +72,7 @@ func (r *runCode) createBlockContent(path string) *runCode {
 // 创建空文件
 func (r *runCode) createBlockFile() *runCode {
 	if r.err != nil {
-		log.Println("创建UUid目录失败 err=", r.err)
+		zap.S().Error("创建UUid目录失败 err=", r.err)
 		return r
 	}
 	codePath := fmt.Sprintf("%s/main.%s", r.path, r.extension)
@@ -78,7 +83,7 @@ func (r *runCode) createBlockFile() *runCode {
 // 写入代码
 func (r *runCode) writeCode(code string) *runCode {
 	if r.err != nil {
-		log.Println("runCode-writeCode err =", r.err)
+		zap.S().Error("runCode-writeCode err =", r.err)
 		return r
 	}
 	_, r.err = r.file.WriteString(code)
@@ -98,7 +103,7 @@ func (r *runCode) createFile(language, code, path string) error {
 	}
 	r.getFileExtension(language).createBlockContent(path).createBlockFile().writeCode(code).sync()
 	if r.err != nil {
-		log.Println("runCode-createFile 的 err=", r.err)
+		zap.S().Error("runCode-createFile 的 err=", r.err)
 		return r.err
 	}
 	return nil
@@ -144,12 +149,12 @@ func (r *runCode) getCommand(language, path string) (string, []string) {
 	return "", nil
 }
 
-func (r *runCode) runCodeContainer(language, path string) (int64, string, error) {
+func (r *runCode) runCodeContainer(language, path string, slot ContainerSlot) (int64, string, error) {
 	cmd, args := r.getCommand(language, path)
 	if cmd == "" {
 		return 0, "", fmt.Errorf("不支持的语言类型: %s", language)
 	}
-	duration, logContent, err := r.InContainerRunCode(language, cmd, args)
+	duration, logContent, err := r.InContainerRunCode(slot.Name, cmd, args)
 	if err != nil {
 		return 0, "", err
 	}
@@ -160,33 +165,47 @@ func (r *runCode) RunCode(request *proto.ExecuteRequest) (duration int64, respon
 	response.Id = request.Id
 	response.Uid = request.Uid
 	response.CallBackUrl = request.CallBackUrl
-	//创建文件
-	uniqueID := uuid.New().String()
-	path := fmt.Sprintf("/app/tmp/%s/%s", request.Language, uniqueID)
-	//创建文件
-	err = r.createFile(request.Language, request.CodeBlock, path)
+
+	// 从池中获取容器 slot
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	slot, err := r.AcquireSlot(ctx, request.Language)
 	if err != nil {
-		zap.S().Error(" containerBasic-RunCode-createFile err=", err)
+		zap.S().Error("containerBasic-RunCode-AcquireSlot err=", err)
 		return 0, response, err
 	}
-	//删除目录
+	healthy := true
+	defer func() {
+		r.ReleaseSlot(request.Language, slot, healthy)
+	}()
+
+	// 使用 slot.HostPath ��建文件
+	uniqueID := uuid.New().String()
+	path := fmt.Sprintf("%s/%s", slot.HostPath, uniqueID)
+	err = r.createFile(request.Language, request.CodeBlock, path)
+	if err != nil {
+		zap.S().Error("containerBasic-RunCode-createFile err=", err)
+		return 0, response, err
+	}
 	defer func() {
 		r.file.Close()
-		err = os.RemoveAll(r.path)
-		if err != nil {
-			zap.S().Error("删除文件夹失败,err=", err)
-			return
+		if removeErr := os.RemoveAll(r.path); removeErr != nil {
+			zap.S().Error("删除文件夹失败,err=", removeErr)
 		}
 	}()
-	//构建文件路径
-	containerPath := fmt.Sprintf("/app/%s/main.%s", uniqueID, r.extension)
-	duration, response.Result, err = r.runCodeContainer(request.Language, containerPath)
 
-	// 记录 Prometheus 指标
+	// 构建容器内路径
+	containerPath := fmt.Sprintf("/app/%s/main.%s", uniqueID, r.extension)
+	duration, response.Result, err = r.runCodeContainer(request.Language, containerPath, slot)
+
+	// Prometheus 指标
 	status := "success"
 	if err != nil {
 		status = "error"
 		response.Err = err.Error()
+		if errors.Is(err, cErrors.ErrContainerExecTimeout) {
+			healthy = false
+		}
 	} else {
 		metrics.CodeExecutionDuration.WithLabelValues(request.Language).Observe(float64(duration) / 1000.0)
 	}
