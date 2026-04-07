@@ -179,24 +179,27 @@ func (r *runCode) RunCode(request *proto.ExecuteRequest) (duration int64, respon
 		r.ReleaseSlot(request.Language, slot, healthy)
 	}()
 
+	// 创建每次调用独立的副本，避免并发时共享 err/extension/file/path 字段
+	rc := &runCode{DockerContainer: r.DockerContainer}
+
 	// 使用 slot.HostPath ��建文件
 	uniqueID := uuid.New().String()
 	path := fmt.Sprintf("%s/%s", slot.HostPath, uniqueID)
-	err = r.createFile(request.Language, request.CodeBlock, path)
+	err = rc.createFile(request.Language, request.CodeBlock, path)
 	if err != nil {
 		zap.S().Error("containerBasic-RunCode-createFile err=", err)
 		return 0, response, err
 	}
 	defer func() {
-		r.file.Close()
-		if removeErr := os.RemoveAll(r.path); removeErr != nil {
+		rc.file.Close()
+		if removeErr := os.RemoveAll(rc.path); removeErr != nil {
 			zap.S().Error("删除文件夹失败,err=", removeErr)
 		}
 	}()
 
 	// 构建容器内路径
-	containerPath := fmt.Sprintf("/app/%s/main.%s", uniqueID, r.extension)
-	duration, response.Result, err = r.runCodeContainer(request.Language, containerPath, slot)
+	containerPath := fmt.Sprintf("/app/%s/main.%s", uniqueID, rc.extension)
+	duration, response.Result, err = rc.runCodeContainer(request.Language, containerPath, slot)
 
 	// Prometheus 指标
 	status := "success"

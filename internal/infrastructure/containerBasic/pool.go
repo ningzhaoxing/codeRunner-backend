@@ -103,6 +103,12 @@ func (p *ContainerPool) Release(lang string, slot ContainerSlot, healthy bool) {
 		return
 	}
 	if healthy {
+		// recover 防止 Close() 与 Release 之间的 TOCTOU 竞争导致 send-on-closed-channel panic
+		defer func() {
+			if r := recover(); r != nil {
+				zap.S().Warnw("Release 时池已关闭，丢弃容器", "container", slot.Name)
+			}
+		}()
 		lp.idle <- slot
 		metrics.PoolIdleGauge.WithLabelValues(lang).Set(float64(len(lp.idle)))
 		return
@@ -145,7 +151,10 @@ func (p *ContainerPool) replenish(lp *langPool, slot ContainerSlot) {
 		)
 		metrics.PoolReplenishTotal.WithLabelValues(lp.lang, "success").Inc()
 		if !p.closed.Load() {
-			lp.idle <- slot
+			func() {
+				defer func() { recover() }()
+				lp.idle <- slot
+			}()
 		}
 		return
 	}
