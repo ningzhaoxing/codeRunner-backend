@@ -12,6 +12,7 @@ import (
 
 type ServerService interface {
 	Execute(ctx context.Context, in *proto.ExecuteRequest) error
+	ExecuteSync(ctx context.Context, in *proto.ExecuteRequest, timeout time.Duration) (*proto.ExecuteResponse, error)
 	Run(cli WebsocketClient, weight int64) error
 }
 
@@ -47,6 +48,28 @@ func (w *ServiceImpl) Execute(ctx context.Context, in *proto.ExecuteRequest) err
 	// Send 成功后记录为在途请求，等待 Client 的 ACK
 	w.ClientManagerDomain.TrackRequest(client.GetId(), in.Id, in)
 	return nil
+}
+
+func (w *ServiceImpl) ExecuteSync(ctx context.Context, in *proto.ExecuteRequest, timeout time.Duration) (*proto.ExecuteResponse, error) {
+	log := tracing.Logger(ctx)
+
+	client, err := w.ClientManagerDomain.GetClientByBalance()
+	if err != nil {
+		log.Errorw("ExecuteSync GetClientByBalance failed", "requestID", in.Id, "err", err)
+		return nil, err
+	}
+
+	start := time.Now()
+	resp, err := client.SendSync(in, timeout)
+	w.ClientManagerDomain.Done(client.GetId(), time.Since(start), err)
+
+	if err != nil {
+		log.Errorw("ExecuteSync SendSync failed", "requestID", in.Id, "clientID", client.GetId(), "err", err)
+		return nil, err
+	}
+
+	log.Infow("ExecuteSync completed", "requestID", in.Id, "clientID", client.GetId(), "duration", time.Since(start))
+	return resp, nil
 }
 
 func (w *ServiceImpl) Run(cli WebsocketClient, weight int64) error {
