@@ -5,14 +5,16 @@ import (
 
 	"go.uber.org/zap"
 	"github.com/spf13/viper"
+	"codeRunner-siwu/internal/agent"
 )
 
 var configPath = "./configs/product.yaml"
 
 type Config struct {
-	Server ServerConfig `yaml:"server"`
-	Client ClientConfig `yaml:"client"`
-	Logger LoggerConfig `yaml:"log"`
+	Server ServerConfig      `yaml:"server"`
+	Client ClientConfig      `yaml:"client"`
+	Logger LoggerConfig      `yaml:"log"`
+	Agent  agent.AgentConfig `yaml:"agent"`
 }
 
 type ServerConfig struct {
