@@ -3,6 +3,8 @@ package server
 import (
 	"codeRunner-siwu/internal/infrastructure/websocket/protocol"
 	"encoding/json"
+	"fmt"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -15,9 +17,10 @@ const (
 )
 
 type WebsocketClientImpl struct {
-	conn       *websocket.Conn
-	isClosed   bool
-	ackHandler func(requestID string) // 收到 ACK 时的回调
+	conn        *websocket.Conn
+	isClosed    bool
+	ackHandler  func(requestID string) // 收到 ACK 时的回调
+	pendingSync sync.Map               // requestID → chan []byte
 }
 
 func NewWebsocketClientImpl(conn *websocket.Conn) *WebsocketClientImpl {
@@ -39,15 +42,22 @@ func (c *WebsocketClientImpl) Read() ([]byte, error) {
 			return data, nil
 		}
 
-		if msg.Type == protocol.MsgTypeAck {
+		switch msg.Type {
+		case protocol.MsgTypeAck:
 			// ACK 消息：触发回调，继续等下一条消息
 			if c.ackHandler != nil {
 				c.ackHandler(msg.RequestID)
 			}
 			continue
+		case protocol.MsgTypeResult:
+			// Result 消息：路由到等待中的 SendSync 调用
+			if ch, ok := c.pendingSync.Load(msg.RequestID); ok {
+				ch.(chan []byte) <- msg.Payload
+			}
+			continue
+		default:
+			return msg.Payload, nil
 		}
-
-		return msg.Payload, nil
 	}
 }
 
@@ -68,6 +78,33 @@ func (c *WebsocketClientImpl) Send(requestID string, payload []byte) error {
 // SetAckHandler 设置收到 ACK 时的回调函数
 func (c *WebsocketClientImpl) SetAckHandler(fn func(requestID string)) {
 	c.ackHandler = fn
+}
+
+// SendSync 发送同步执行请求，阻塞等待 result 消息返回或超时
+func (c *WebsocketClientImpl) SendSync(requestID string, payload []byte, timeout time.Duration) ([]byte, error) {
+	ch := make(chan []byte, 1)
+	c.pendingSync.Store(requestID, ch)
+	defer c.pendingSync.Delete(requestID)
+
+	msg := protocol.WsMessage{
+		Type:      protocol.MsgTypeExecuteSync,
+		RequestID: requestID,
+		Payload:   payload,
+	}
+	data, err := json.Marshal(msg)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.conn.WriteMessage(websocket.TextMessage, data); err != nil {
+		return nil, err
+	}
+
+	select {
+	case result := <-ch:
+		return result, nil
+	case <-time.After(timeout):
+		return nil, fmt.Errorf("SendSync timeout for request %s", requestID)
+	}
 }
 
 func (c *WebsocketClientImpl) Close() error {
