@@ -99,6 +99,7 @@ type ClientManagerDomain interface {
 
 type WebsocketClient interface {
 	Send(requestID string, payload []byte) error
+	SendSync(requestID string, payload []byte, timeout time.Duration) ([]byte, error)
 	SetAckHandler(fn func(requestID string))
 	Close() error
 	HeartBeat() error
