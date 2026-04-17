@@ -4,29 +4,18 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a33be4b5-38b2-4638-a077-6d8522743f9f" name="更改" comment="使用线上环境">
-      <change afterPath="$PROJECT_DIR$/.idea/coderunner.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/codeRunner-siwu.iml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/builds/api/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/builds/api/Dockerfile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/internal/application/service/server/service.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/application/service/server/service.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/internal/domain/client/entity/innerServer.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/domain/client/entity/innerServer.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/internal/domain/server/entity/client.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/domain/server/entity/client.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/internal/domain/server/service/clientManager.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/domain/server/service/clientManager.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/internal/infrastructure/balanceStrategy/loadBalance.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/infrastructure/balanceStrategy/loadBalance.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/internal/infrastructure/balanceStrategy/weightedRRBalance/weightedRR.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/infrastructure/balanceStrategy/weightedRRBalance/weightedRR.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/internal/infrastructure/websocket/server/client.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/infrastructure/websocket/server/client.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/internal/interfaces/adapter/middleware/interceptor.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/interfaces/adapter/middleware/interceptor.go" afterDir="false" />
+    <list default="true" id="a33be4b5-38b2-4638-a077-6d8522743f9f" name="更改" comment="refactor:vars name and code struct refactor">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/infrastructure/balanceStrategy/loadBalance.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/test/test.go" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
-  <component name="GOROOT" url="file://$USER_HOME$/go/go1.24.2" />
+  <component name="GOROOT" url="file:///opt/homebrew/opt/go/libexec" />
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
@@ -73,7 +62,7 @@
     &quot;git-widget-placeholder&quot;: &quot;develop-client&quot;,
     &quot;go.import.settings.migrated&quot;: &quot;true&quot;,
     &quot;go.sdk.automatically.set&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/Administrator&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/ningzhaoxing/Desktop/coderunner&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
@@ -83,8 +72,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-gosdk-f466f9b0953e-3d2cccfc42a2-org.jetbrains.plugins.go.sharedIndexes.bundled-GO-252.25557.189" />
-        <option value="bundled-js-predefined-d6986cc7102b-b598e85cdad2-JavaScript-GO-252.25557.189" />
+        <option value="bundled-gosdk-f466f9b0953e-146d08934cbf-org.jetbrains.plugins.go.sharedIndexes.bundled-GO-252.27397.100" />
+        <option value="bundled-js-predefined-d6986cc7102b-3aa1da707db6-JavaScript-GO-252.27397.100" />
       </set>
     </attachedChunks>
   </component>
@@ -115,7 +104,8 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="启动服务" />
     <MESSAGE value="使用线上环境" />
-    <option name="LAST_COMMIT_MESSAGE" value="使用线上环境" />
+    <MESSAGE value="refactor:vars name and code struct refactor" />
+    <option name="LAST_COMMIT_MESSAGE" value="refactor:vars name and code struct refactor" />
   </component>
   <component name="VgoProject">
     <settings-migrated>true</settings-migrated>

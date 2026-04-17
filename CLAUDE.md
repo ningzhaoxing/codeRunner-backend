@@ -7,7 +7,7 @@ Distributed code execution system for blog platforms. Users submit code via the 
 - **Architecture:** DDD (Domain-Driven Design) with four layers: interfaces → application → domain → infrastructure
 - **Communication:** gRPC (external API) + WebSocket (Server ↔ Worker bidirectional) + HTTP Callback (async result delivery)
 - **Dual-mode binary:** Server mode (cloud-side task orchestration) / Client mode (worker node code execution), switched in `cmd/api/main.go`
-- **Supported languages:** Go, Python, JavaScript, Java, C++
+- **Supported languages:** Go, Python, JavaScript, Java, C
 - **Tech stack:** Go 1.23, Gin, gRPC, gorilla/websocket, Docker SDK, ETCD, Redis, Zap, Prometheus
 
 ## System Architecture
