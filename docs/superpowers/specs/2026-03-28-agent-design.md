@@ -66,10 +66,7 @@ CodeRunner Server 内部
   │     ├── reduction 中间件（截断大输出）
   │     └── propose-execution Tool (HITL interrupt)
   │
-  ├── CodeExecutor 接口 ────→ Application Service ────→ WebSocket → Worker → Docker
-  │
-  └── POST /agent/internal/callback ← HTTP 回调（Worker 现有机制）
-        └── 通过 channel 唤醒 confirm Handler
+  └── CodeExecutor 接口 ────→ Application Service ────→ WS execute_sync → Worker → Docker → WS result
 ```
 
 **数据流说明**：
@@ -78,8 +75,7 @@ CodeRunner Server 内部
 |------|--------|---------|------|
 | 用户发消息 | 博客前端 | Server `POST /agent/chat` | HTTP + SSE |
 | 用户确认运行 | 博客前端 | Server `POST /agent/confirm` | HTTP + SSE |
-| Agent 触发执行 | AgentService | CodeExecutor（进程内接口调用） | Go interface |
-| 执行结果回传 | Worker 节点 | Server `POST /agent/internal/callback` | HTTP |
+| Agent 触发执行 | AgentService | CodeExecutor → WS `execute_sync` → Worker | Go interface + WebSocket |
 | 用户普通运行（不经 Agent） | 博客后端 | CodeRunner `Execute` | gRPC（不变） |
 
 ---
@@ -250,24 +246,6 @@ func (s *MemoryCheckPointStore) Put(ctx context.Context, id string, data []byte)
 
 > CheckPointStore 仅在 HITL 场景下被 Runner 使用：interrupt 时自动保存 Agent 执行状态，Resume 时自动加载。普通多轮对话不经过 CheckPointStore。
 
-#### PendingCallbacks 注册表
-
-`PendingCallbacks` 管理 `proposal_id` → `chan ExecResult` 的映射，用于 confirm Handler 等待 Worker 回调：
-
-```go
-// internal/agent/handler/pending.go
-type PendingCallbacks struct {
-    mu       sync.Mutex
-    channels map[string]chan ExecResult  // proposal_id → 等待通道
-}
-
-func (p *PendingCallbacks) Register(proposalID string) chan ExecResult
-func (p *PendingCallbacks) Resolve(proposalID string, result ExecResult) bool
-func (p *PendingCallbacks) Remove(proposalID string)
-```
-
-生命周期简单：confirm Handler 调 `Register()` 创建 channel 并阻塞等待；callback Handler 调 `Resolve()` 写入结果唤醒；confirm Handler 被唤醒后自动 `Remove()` 清理。
-
 #### HITL 流程（propose_execution → confirm → resume）
 
 **两次 SSE，两个 HTTP 请求（对齐 Eino 推荐实践）：**
@@ -276,10 +254,9 @@ func (p *PendingCallbacks) Remove(proposalID string)
 1. LLM 生成修复代码 → 调用 propose_execution Tool
 2. Tool 内部：
    a. 语言标准化校验
-   b. 生成 proposal_id (UUID v4) + callback_token (UUID v4)
+   b. 生成 proposal_id (UUID v4)
    c. 调用 tool.StatefulInterrupt(ctx, &ProposalInfo{
         ProposalID:    proposalID,
-        CallbackToken: callbackToken,
         Code:          newCode,
         Language:      language,
         Description:   description,
@@ -295,13 +272,10 @@ func (p *PendingCallbacks) Remove(proposalID string)
    c. 已确认 → 409
    d. 过期（>10min） → 410
    e. 合法 → 开启 SSE 流，推送 {"type":"executing"}
-   f. 注册 pendingCallbacks.Register(proposalID) → 拿到 channel
-   g. 调用 CodeExecutor.Execute(ctx, req)（异步触发执行）
-   h. 阻塞等待 channel ← ExecResult（或超时）
-   i. 收到结果 → 调用 agent.Resume(ctx, resumeInfo)
-   j. 遍历 Resume 返回的 AsyncIterator → SSE 推送 AgentEvent
-   k. 迭代器结束 → SSE 关闭
-8. Agent 恢复后继续回答，用户在 confirm SSE 中收到
+   f. 调用 CodeExecutor.Execute(ctx, req)（同步阻塞，底层 WS execute_sync → result）
+   g. 拿到 ExecResult → 调用 runner.ResumeWithParams(ctx, sessionID, resumeTargets)
+   h. 遍历 Resume 返回的 AsyncIterator → SSE 推送 AgentEvent
+   i. 迭代器结束 → SSE 关闭
 ```
 
 **时序图（正常路径）：**
@@ -610,6 +584,5 @@ agent:
 | Runtime | 大输出截断 | ADK reduction 中间件，阈值 50000 字符 |
 | Runtime | 并发 /chat | 新请求关闭旧 SSE；interrupt 态下视为意图变更，丢弃 proposal 重新 Run |
 | Runtime | SSE 连接模型 | chat SSE + confirm SSE 分离，每个 SSE 对应完整 Agent 生命周期 |
-| Runtime | 断连后 callback | 不适用 — 同步执行模式，无 callback |
 | Runtime | 断连处理 | SSE 写入失败 → context cancel |
 | Runtime | 可观测性 | Prometheus（3 指标）+ 请求链路 ID |
