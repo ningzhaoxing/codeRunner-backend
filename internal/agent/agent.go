@@ -1,0 +1,76 @@
+package agent
+
+import (
+	"context"
+	"fmt"
+
+	"codeRunner-siwu/internal/agent/ai"
+	"codeRunner-siwu/internal/agent/checkpoint"
+	"codeRunner-siwu/internal/agent/session"
+
+	"github.com/cloudwego/eino/adk"
+	"go.uber.org/zap"
+)
+
+type AgentService struct {
+	Cfg             AgentConfig
+	Provider        ai.Provider
+	SessionStore    *session.SessionStore
+	CheckpointStore *checkpoint.MemoryCheckPointStore
+	Runner          *adk.Runner
+}
+
+func NewAgentService(ctx context.Context, cfg AgentConfig, dataDir string) (*AgentService, error) {
+	if !cfg.Enabled {
+		return nil, fmt.Errorf("agent is not enabled")
+	}
+
+	// AI Provider
+	aiCfg := ai.Config{Provider: cfg.Provider}
+	aiCfg.Claude.APIKey = cfg.Claude.APIKey
+	aiCfg.Claude.Model = cfg.Claude.Model
+	aiCfg.OpenAI.APIKey = cfg.OpenAI.APIKey
+	aiCfg.OpenAI.Model = cfg.OpenAI.Model
+	provider, err := ai.NewProvider(ctx, aiCfg)
+	if err != nil {
+		return nil, fmt.Errorf("create AI provider: %w", err)
+	}
+
+	// Session Store (JSONL)
+	sessionStore, err := session.NewSessionStore(dataDir+"/agent/sessions", cfg.GetSessionTTL())
+	if err != nil {
+		return nil, fmt.Errorf("create session store: %w", err)
+	}
+	sessionStore.StartCleanup(cfg.GetSessionTTL() / 6)
+
+	// Checkpoint Store (memory, for HITL only)
+	checkpointStore := checkpoint.NewMemoryCheckPointStore(cfg.GetSessionTTL())
+	checkpointStore.StartCleanup(cfg.GetSessionTTL() / 6)
+
+	// ChatModelAgent — tools will be added in Task 4, for now create without tools
+	chatAgent, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
+		Name:          "code-learning-agent",
+		Model:         provider.ChatModel(),
+		MaxIterations: cfg.MaxSteps,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create chat model agent: %w", err)
+	}
+
+	// Runner wraps ChatModelAgent + CheckPointStore
+	runner := adk.NewRunner(ctx, adk.RunnerConfig{
+		Agent:           chatAgent,
+		EnableStreaming:  true,
+		CheckPointStore: checkpointStore,
+	})
+
+	zap.S().Info("Agent service initialized", "provider", cfg.Provider)
+
+	return &AgentService{
+		Cfg:             cfg,
+		Provider:        provider,
+		SessionStore:    sessionStore,
+		CheckpointStore: checkpointStore,
+		Runner:          runner,
+	}, nil
+}
