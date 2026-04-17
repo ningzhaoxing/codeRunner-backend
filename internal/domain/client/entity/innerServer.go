@@ -5,6 +5,8 @@ import (
 	"codeRunner-siwu/internal/domain/client/events"
 	docker "codeRunner-siwu/internal/infrastructure/containerBasic"
 	"codeRunner-siwu/internal/infrastructure/websocket/client"
+	"codeRunner-siwu/internal/infrastructure/websocket/protocol"
+	"encoding/json"
 
 	"go.uber.org/zap"
 )
@@ -48,13 +50,29 @@ func (i *InnerServerDomainImpl) sendResponseDuration(duration float64) error {
 	return i.WebsocketSend(data)
 }
 
-func (i *InnerServerDomainImpl) Read() (*proto.ExecuteRequest, error) {
-	msg, err := i.WebsocketClient.Read()
+func (i *InnerServerDomainImpl) Read() (*client.ReadResult, error) {
+	result, err := i.WebsocketClient.Read()
 	if err != nil {
 		zap.S().Error("domain.client.entity.Read() WebsocketClient.Read err=", err)
 		return nil, err
 	}
-	return msg, nil
+	return result, nil
+}
+
+func (i *InnerServerDomainImpl) SendResult(response *proto.ExecuteResponse, err error) error {
+	if err != nil {
+		response.Err = err.Error()
+	}
+	payload, marshalErr := json.Marshal(response)
+	if marshalErr != nil {
+		return marshalErr
+	}
+	wsMsg := protocol.WsMessage{
+		Type:      protocol.MsgTypeResult,
+		RequestID: response.Id,
+		Payload:   payload,
+	}
+	return i.WebsocketSend(wsMsg)
 }
 
 func (i *InnerServerDomainImpl) Send(response *proto.ExecuteResponse, err error) error {

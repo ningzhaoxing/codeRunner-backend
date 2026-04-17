@@ -13,9 +13,14 @@ import (
 	"time"
 )
 
+type ReadResult struct {
+	Request *proto.ExecuteRequest
+	MsgType protocol.MsgType
+}
+
 type WebsocketClient interface {
 	Dail(TargetServer) error                          // websocket客户端启动
-	Read() (*proto.ExecuteRequest, error)             // 读取消息
+	Read() (*ReadResult, error)                       // 读取消息
 	CallBackSend(*proto.ExecuteResponse, error) error // 发送消息post到回调url
 	WebsocketSend(any) error                          // 通过websocket发送消息
 	Close() error
@@ -51,11 +56,11 @@ func (i *WebsocketClientImpl) Dail(targetServer TargetServer) error {
 	return nil
 }
 
-// 读取websocket服务端消息，收到后立即回 ACK 再返回
-func (i *WebsocketClientImpl) Read() (*proto.ExecuteRequest, error) {
+// 读取websocket服务端消息，execute 消息立即回 ACK，execute_sync 使用 result 消息作为确认
+func (i *WebsocketClientImpl) Read() (*ReadResult, error) {
 	_, m, err := i.conn.ReadMessage()
 	if err != nil {
-		zap.S().Error("infrastructure-websocket-client innerServer的Read()  err=", err)
+		zap.S().Error("infrastructure-websocket-client Read() err=", err)
 		return nil, err
 	}
 
@@ -64,21 +69,22 @@ func (i *WebsocketClientImpl) Read() (*proto.ExecuteRequest, error) {
 		return nil, err
 	}
 
-	// 收到 execute 请求后立即回 ACK（执行前），让 Server 从 pendingReqs 移除
-	ack, _ := json.Marshal(protocol.WsMessage{
-		Type:      protocol.MsgTypeAck,
-		RequestID: wsMsg.RequestID,
-	})
-	if writeErr := i.conn.WriteMessage(websocket.TextMessage, ack); writeErr != nil {
-		zap.S().Warn("infrastructure-websocket-client Read() send ACK failed: ", writeErr)
-		// ACK 发送失败不阻塞执行，Server 会在断线时重发
+	// Only execute needs ACK; execute_sync uses result message as confirmation
+	if wsMsg.Type == protocol.MsgTypeExecute {
+		ack, _ := json.Marshal(protocol.WsMessage{
+			Type:      protocol.MsgTypeAck,
+			RequestID: wsMsg.RequestID,
+		})
+		if writeErr := i.conn.WriteMessage(websocket.TextMessage, ack); writeErr != nil {
+			zap.S().Warn("infrastructure-websocket-client Read() send ACK failed: ", writeErr)
+		}
 	}
 
 	msg := new(proto.ExecuteRequest)
 	if err = json.Unmarshal(wsMsg.Payload, msg); err != nil {
 		return nil, err
 	}
-	return msg, nil
+	return &ReadResult{Request: msg, MsgType: wsMsg.Type}, nil
 }
 
 const (

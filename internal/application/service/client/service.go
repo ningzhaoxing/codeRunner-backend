@@ -5,6 +5,7 @@ import (
 	"codeRunner-siwu/internal/domain/client/service"
 	"codeRunner-siwu/internal/infrastructure/config"
 	"codeRunner-siwu/internal/infrastructure/websocket/client"
+	"codeRunner-siwu/internal/infrastructure/websocket/protocol"
 	"fmt"
 	"go.uber.org/zap"
 )
@@ -28,25 +29,28 @@ func (w *ServiceImpl) Run(c config.Config) error {
 	}
 
 	for {
-		// 读取消息
-		msg, err := w.InnerServerDomain.Read()
+		readResult, err := w.InnerServerDomain.Read()
 		if err != nil {
 			zap.S().Error(fmt.Sprintln("websocket客户端已被关闭,请重启服务。application.client.Run() Read err=", err))
 			return err
 		}
-		fmt.Println("读取到消息:", msg)
+		fmt.Println("读取到消息:", readResult.Request)
 
-		// 执行代码
-		res, err := w.RunCode(msg)
-		if err != nil {
-			zap.S().Error(fmt.Sprintln("application.client.Run() Service err=", err))
+		res, execErr := w.RunCode(readResult.Request)
+		if execErr != nil {
+			zap.S().Error(fmt.Sprintln("application.client.Run() Service err=", execErr))
 		}
 		fmt.Println("处理结果为:", res)
 
-		// 发送结果
-		if err = w.send(res, err); err != nil {
-			zap.S().Error(fmt.Sprintln("application.client.Run() send err=", err))
-			continue
+		switch readResult.MsgType {
+		case protocol.MsgTypeExecuteSync:
+			if err = w.sendResult(res, execErr); err != nil {
+				zap.S().Error(fmt.Sprintln("application.client.Run() sendResult err=", err))
+			}
+		default:
+			if err = w.send(res, execErr); err != nil {
+				zap.S().Error(fmt.Sprintln("application.client.Run() send err=", err))
+			}
 		}
 		fmt.Println("结果发送成功")
 	}
@@ -68,6 +72,14 @@ func (w *ServiceImpl) send(res *proto.ExecuteResponse, err error) error {
 	// 发送消息
 	if err := w.InnerServerDomain.Send(res, err); err != nil {
 		zap.S().Error(fmt.Sprintln("application.client.send() CallBackSend err=\n", err))
+		return err
+	}
+	return nil
+}
+
+func (w *ServiceImpl) sendResult(res *proto.ExecuteResponse, err error) error {
+	if err := w.InnerServerDomain.SendResult(res, err); err != nil {
+		zap.S().Error(fmt.Sprintln("application.client.sendResult() err=", err))
 		return err
 	}
 	return nil
