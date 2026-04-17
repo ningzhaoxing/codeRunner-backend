@@ -126,6 +126,12 @@ interface PlaygroundStorage {
 3. 都没有 → Go 语言 + Hello World 默认模板
 ```
 
+**URL 参数与 localStorage 的关系**：URL 参数初始化编辑器但不立即写入 localStorage。只有当用户在编辑器中修改代码后，才会触发 localStorage 保存。页面刷新时，若 URL 参数仍在，继续使用 URL 参数。
+
+**localStorage 写入策略**：`setCode` 触发的 localStorage 写入使用 500ms 防抖，避免每次按键都写入。StatusBar 的"已保存"指示器在防抖完成后显示。
+
+**浏览器历史**：从文章跳转到 Playground 使用 `router.push`（保留 Back 返回文章）。Playground 内部的语言切换使用 `router.replace`（不污染历史栈）。
+
 ---
 
 ## 四、URL 分享
@@ -136,8 +142,8 @@ interface PlaygroundStorage {
 /playground?lang=go&code=eJxLSS0u0cvIL0pVSMsvyklRBAAgVgVN
 ```
 
-- 编码：`btoa(encodeURIComponent(code))`
-- 解码：`decodeURIComponent(atob(urlCode))`
+- 编码：`btoa(unescape(encodeURIComponent(code)))`（支持中文注释等非 ASCII 字符）
+- 解码：`decodeURIComponent(escape(atob(urlCode)))`
 - 点击 🔗 分享按钮 → 生成 URL → 复制到剪贴板 → toast "链接已复制"
 - 代码超过 4KB 时 → toast "代码过长，建议手动复制分享"
 
@@ -177,8 +183,7 @@ interface PlaygroundStorage {
     无 → 加载默认模板
   → 更新 Monaco Editor 语言 + 代码 + 文件名
   → 清空 Output
-  → 清空 AI 消息（新语言是新上下文）
-  → 清空 sessionId（触发 AI 重新建立 session）
+  → 清空 AI 消息和 sessionId（新语言是新上下文，有意为之，不需确认弹窗）
 ```
 
 ---
@@ -199,8 +204,10 @@ interface PlaygroundStorage {
 |---|---|
 | Monaco Editor (`@monaco-editor/react`) | 直接复用，高度改为 `100%` |
 | `OutputPanel` | 直接复用 |
-| `AIPanel` | 复用，`articleId=""`，`articleContent=""`，`allCodeBlocks` 只含当前代码 |
+| `AIPanel` | 复用，`articleId=""`，`articleContent=""`，`allCodeBlocks` 只含当前代码。AIPanel 的 props 已定义为可选，空字符串合法，无需接口修改 |
 | `ChatMessages` / `ChatInput` / `CodeSuggestion` | 完全复用 |
+
+Playground 传给 AIPanel 的 `allCodeBlocks` 格式：`[{ block_id: "playground", language: currentLang, code: currentCode }]`
 
 ### 修改已有组件
 
@@ -280,4 +287,4 @@ src/
 | 代码片段库 / 历史记录 | 需要后端存储，复杂度高 |
 | 协作编辑 | 需要 WebSocket + OT/CRDT，远超 MVP |
 | 自定义主题切换 | 与博客主题切换一起做 |
-| Output 面板拖拽调整高度 | 增加复杂度，MVP 用固定高度 |
+| Output 面板拖拽调整高度 | 增加复杂度，MVP 用固定高度 160px |
