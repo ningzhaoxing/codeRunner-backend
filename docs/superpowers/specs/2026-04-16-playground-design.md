@@ -110,6 +110,7 @@ interface PlaygroundStore {
 ```typescript
 // key: "playground-state"
 interface PlaygroundStorage {
+  version: 1;  // schema 版本号，未来迁移用
   activeLanguage: string;
   files: Record<string, {
     code: string;
@@ -117,6 +118,8 @@ interface PlaygroundStorage {
   }>;
 }
 ```
+
+读取 localStorage 时检查 `version`，缺失或不匹配则丢弃旧数据，用默认值重建。
 
 ### 初始化优先级
 
@@ -142,10 +145,14 @@ interface PlaygroundStorage {
 /playground?lang=go&code=eJxLSS0u0cvIL0pVSMsvyklRBAAgVgVN
 ```
 
-- 编码：`btoa(unescape(encodeURIComponent(code)))`（支持中文注释等非 ASCII 字符）
-- 解码：`decodeURIComponent(escape(atob(urlCode)))`
+- 编码：使用 `pako.deflateRaw` 压缩后再 Base64url 编码（与 Go Playground 同方案），有效缩短 URL
+- 解码：Base64url 解码后 `pako.inflateRaw`
+- 降级：若 pako 加载失败，fallback 到 `btoa(unescape(encodeURIComponent(code)))`
 - 点击 🔗 分享按钮 → 生成 URL → 复制到剪贴板 → toast "链接已复制"
-- 代码超过 4KB 时 → toast "代码过长，建议手动复制分享"
+- 压缩后 URL 仍超过 2KB → toast "代码过长，建议手动复制分享"
+- URL code 参数解码失败（被截断、手动篡改等）→ 忽略 code 参数，使用 localStorage 或默认模板，toast "分享链接已损坏"
+
+依赖：`npm install pako`（~45KB gzipped，轻量）
 
 ### 从文章跳转
 
@@ -183,7 +190,10 @@ interface PlaygroundStorage {
     无 → 加载默认模板
   → 更新 Monaco Editor 语言 + 代码 + 文件名
   → 清空 Output
-  → 清空 AI 消息和 sessionId（新语言是新上下文，有意为之，不需确认弹窗）
+  → AI 消息处理：
+    - 若 AI 消息为空 → 静默清空 sessionId
+    - 若 AI 消息非空 → 清空 AI 消息和 sessionId，显示 toast "AI 对话已清空"
+  （新语言是新上下文，有意为之，用 toast 提示而非弹窗确认）
 ```
 
 ---
@@ -255,10 +265,34 @@ AI 面板在 Playground 中：
 - 展开时编辑器和 AI 面板左右分栏（flex 6:4）
 - 切换语言时清空 AI 消息和 sessionId
 - 快捷按钮同文章页：解释 / 调试 / 测试
+- AIPanel 需新增 `mode` prop（`"article" | "playground"`），Playground 模式下后端 system prompt 不引用文章内容（纯代码分析）
 
 ---
 
-## 九、文件结构总览
+## 九、错误处理与边界场景
+
+| 场景 | 处理 |
+|---|---|
+| URL code 参数解码失败 | 忽略 code 参数，fallback 到 localStorage 或默认模板，toast "分享链接已损坏" |
+| localStorage 数据损坏 / version 不匹配 | 丢弃旧数据，用默认值重建 |
+| 代码执行超时（30s） | 取消请求，setRunning(false)，Output 显示 "执行超时" |
+| 网络请求失败 | Output 显示 "网络错误，请重试" |
+| 分享时 URL 过长（>2KB） | toast "代码过长，建议手动复制分享"，不生成链接 |
+| 文件名与代码不一致（如 Java 类名修改） | 文件名纯展示用途，不影响执行。后端按语言决定执行方式 |
+| 移动端访问 | MVP 不做移动端适配，Playground 页面在小屏设备上显示提示"建议在桌面端使用" |
+
+---
+
+## 十、键盘快捷键
+
+| 快捷键 | 动作 |
+|---|---|
+| `Ctrl/Cmd + Enter` | 运行代码 |
+| `Ctrl/Cmd + S` | 防止浏览器默认保存行为，显示 toast "已保存"（实际已自动保存） |
+
+---
+
+## 十一、文件结构总览
 
 ```
 src/
@@ -279,7 +313,7 @@ src/
 
 ---
 
-## 十、不在本期范围
+## 十二、不在本期范围
 
 | 功能 | 原因 |
 |---|---|
