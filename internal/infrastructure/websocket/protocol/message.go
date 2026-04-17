@@ -4,8 +4,10 @@ package protocol
 type MsgType string
 
 const (
-	MsgTypeExecute MsgType = "execute" // Server → Client：执行请求
-	MsgTypeAck     MsgType = "ack"     // Client → Server：收到确认
+	MsgTypeExecute     MsgType = "execute"      // Server → Client：执行请求
+	MsgTypeAck         MsgType = "ack"          // Client → Server：收到确认
+	MsgTypeExecuteSync MsgType = "execute_sync" // Server → Client：同步执行请求
+	MsgTypeResult      MsgType = "result"       // Client → Server：执行结果回传
 )
 
 // WsMessage 是 WebSocket 通信的统一消息封装
