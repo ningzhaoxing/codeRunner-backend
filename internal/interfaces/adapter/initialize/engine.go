@@ -1,7 +1,6 @@
 package initialize
 
 import (
-	"codeRunner-siwu/internal/interfaces/adapter/router"
 	"github.com/gin-gonic/gin"
 )
 
@@ -10,6 +9,5 @@ func routeEngine() *gin.Engine {
 
 	r.Use(gin.Recovery())
 
-	router.ApiRouter(r)
 	return r
 }

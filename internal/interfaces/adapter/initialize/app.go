@@ -38,6 +38,7 @@ func RunServer() {
 		url := fmt.Sprintf("%s:%s", c.Server.App.Host, c.Server.App.Port)
 		fmt.Println(url)
 		r := routeEngine()
+		router.ApiRouter(r, serverSvc)
 		if c.Agent.Enabled {
 			agentSvc, err := agent.NewAgentService(ctx, c.Agent, ".")
 			if err != nil {
