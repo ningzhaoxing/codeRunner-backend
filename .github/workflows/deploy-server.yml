@@ -50,7 +50,7 @@ jobs:
             fi
 
             # Build image on server
-            /usr/bin/docker build \
+            /usr/bin/docker build --no-cache \
               -f builds/api/Dockerfile \
               -t ${{ env.IMAGE_NAME }}:latest .
 
