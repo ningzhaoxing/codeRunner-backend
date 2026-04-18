@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 
 	"go.uber.org/zap"
 	"github.com/spf13/viper"
@@ -82,6 +83,14 @@ func LoadConfig(config *Config) error {
 	if err := viper.ReadInConfig(); err != nil {
 		zap.S().Error("infrastructure-config LoadConfig()的 viper.ReadInConfig err  %v", err)
 		return err
+	}
+
+	// 展开配置中的 ${ENV_VAR} 引用
+	for _, key := range viper.AllKeys() {
+		val := viper.GetString(key)
+		if val != "" && val != os.ExpandEnv(val) {
+			viper.Set(key, os.ExpandEnv(val))
+		}
 	}
 
 	if err := viper.Unmarshal(config); err != nil {
