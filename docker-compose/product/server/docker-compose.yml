@@ -1,13 +1,12 @@
 version: '3.8'
 
 services:
-  code-runner-api-client:
-    build:
-      context: .
-      dockerfile: builds/api/Dockerfile
+  code-runner-server:
+    image: ghcr.io/${GITHUB_REPOSITORY:-local}/coderunner-server:latest
     environment:
+      - APP_MODE=server
       - APP_ENV=production
-      - DOCKER_HOST=unix:///var/run/docker.sock
     ports:
-      - "7979:7979"   # 处理restful请求
-      - "50011:50011"   # 处理grpc请求
+      - "7979:7979"
+      - "50011:50011"
+    restart: unless-stopped

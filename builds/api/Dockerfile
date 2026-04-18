@@ -9,23 +9,21 @@ ENV GO111MODULE=on \
     GOARCH=amd64 \
     TZ=Asia/Shanghai
 
-# 复制 go.mod 和 go.sum
 COPY go.mod go.sum ./
-
-# 下载依赖
 RUN go mod download
 
-# 复制源代码
 COPY . .
+RUN go build -o code-runner ./cmd/api/main.go
 
-# 构建应用
-RUN go build -o code-runner-client ./cmd/api/main.go
-
-# 使用轻量级的 alpine 作为最终镜像
 FROM alpine:latest
 
-WORKDIR /app
-COPY --from=builder --chown=runner /app/code-runner-client .
-COPY --chown=runner configs/dev.yaml ./configs/
+RUN adduser -D -u 10000 runner
 
-CMD ["/app/code-runner-client"]
+WORKDIR /app
+COPY --from=builder --chown=runner /app/code-runner .
+COPY --chown=runner configs/dev.yaml ./configs/
+COPY --chown=runner configs/product.yaml ./configs/
+
+USER runner
+
+CMD ["/app/code-runner"]

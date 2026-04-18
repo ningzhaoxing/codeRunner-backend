@@ -2,9 +2,14 @@ package main
 
 import (
 	"codeRunner-siwu/internal/interfaces/adapter/initialize"
+	"os"
 )
 
 func main() {
-	// 客户端启动
-	initialize.RunClient()
+	mode := os.Getenv("APP_MODE")
+	if mode == "server" {
+		initialize.RunServer()
+	} else {
+		initialize.RunClient()
+	}
 }
