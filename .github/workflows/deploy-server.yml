@@ -23,6 +23,10 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           command_timeout: 10m
           script: |
+            # Ensure GitHub host key is trusted
+            mkdir -p ~/.ssh
+            ssh-keyscan -t ed25519,rsa github.com >> ~/.ssh/known_hosts 2>/dev/null
+
             # Pull latest code
             if [ ! -d "${{ env.DEPLOY_PATH }}/.git" ]; then
               mkdir -p ${{ env.DEPLOY_PATH }}
