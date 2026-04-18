@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"codeRunner-siwu/internal/agent"
+	"codeRunner-siwu/internal/agent/tools"
 
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/schema"
@@ -176,6 +177,19 @@ func ChatHandler(svc *agent.AgentService) gin.HandlerFunc {
 				errPayload, _ := json.Marshal(gin.H{"error": event.Err.Error()})
 				sseEvent(c, "error", string(errPayload))
 				break
+			}
+
+			// Capture interrupt ID and proposal info for the confirm handler
+			if event.Action != nil && event.Action.Interrupted != nil {
+				for _, ic := range event.Action.Interrupted.InterruptContexts {
+					if ic != nil && ic.IsRootCause {
+						svc.InterruptIDs.Store(sessionID, ic.ID)
+						if proposal, ok := ic.Info.(*tools.ProposalInfo); ok {
+							svc.Proposals.Store(sessionID, proposal)
+						}
+						break
+					}
+				}
 			}
 
 			if event.Output != nil && event.Output.MessageOutput != nil {

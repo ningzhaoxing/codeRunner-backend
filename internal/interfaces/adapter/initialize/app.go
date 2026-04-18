@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"codeRunner-siwu/internal/agent"
 	"codeRunner-siwu/internal/interfaces/adapter/router"
@@ -31,7 +32,7 @@ func RunServer() {
 	}
 
 	// 服务注册
-	serverServiceRegister()
+	serverSvc := serverServiceRegister()
 
 	go func() {
 		url := fmt.Sprintf("%s:%s", c.Server.App.Host, c.Server.App.Port)
@@ -42,6 +43,7 @@ func RunServer() {
 			if err != nil {
 				zap.S().Warnf("agent service init failed, agent routes disabled: %v", err)
 			} else {
+				agentSvc.Executor = agent.NewCodeExecutor(serverSvc, 30*time.Second)
 				router.AgentRouter(r, agentSvc)
 			}
 		}

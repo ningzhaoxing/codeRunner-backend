@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"codeRunner-siwu/internal/agent/ai"
 	"codeRunner-siwu/internal/agent/checkpoint"
@@ -18,6 +19,15 @@ type AgentService struct {
 	SessionStore    *session.SessionStore
 	CheckpointStore *checkpoint.MemoryCheckPointStore
 	Runner          *adk.Runner
+	Executor        CodeExecutor
+
+	// InterruptIDs maps sessionID → interrupt context ID (from InterruptCtx.ID).
+	// Populated by the chat handler when an interrupt event is observed.
+	InterruptIDs sync.Map // sessionID → string
+
+	// Proposals maps sessionID → *tools.ProposalInfo.
+	// Populated by the chat handler when a propose_execution interrupt is observed.
+	Proposals sync.Map // sessionID → *tools.ProposalInfo
 }
 
 func NewAgentService(ctx context.Context, cfg AgentConfig, dataDir string) (*AgentService, error) {
@@ -72,5 +82,6 @@ func NewAgentService(ctx context.Context, cfg AgentConfig, dataDir string) (*Age
 		SessionStore:    sessionStore,
 		CheckpointStore: checkpointStore,
 		Runner:          runner,
+		// Executor is set externally after construction (requires ServerService).
 	}, nil
 }

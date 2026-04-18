@@ -14,7 +14,7 @@ import (
 	"codeRunner-siwu/internal/interfaces/controller"
 )
 
-func serverServiceRegister() {
+func serverServiceRegister() server.ServerService {
 	/*
 		依赖注入
 	*/
@@ -31,6 +31,7 @@ func serverServiceRegister() {
 	srv := server.NewServiceImpl(clientManagerDomain)
 	// 注入
 	controller.InitSrbInject(srv, tokenSrv)
+	return srv
 }
 
 func clientServiceRegister(poolCfg config.ContainerPoolConfig) (*client.ServiceImpl, *docker.ContainerPool, error) {
