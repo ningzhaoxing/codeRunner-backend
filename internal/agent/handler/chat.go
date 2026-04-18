@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"codeRunner-siwu/internal/agent"
 	"codeRunner-siwu/internal/agent/tools"
+	"codeRunner-siwu/internal/infrastructure/metrics"
 
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/schema"
@@ -76,6 +78,9 @@ func buildInstruction(ctx *articleCtx) string {
 
 func ChatHandler(svc *agent.AgentService) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		start := time.Now()
+		status := "success"
+
 		var req chatRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid request body"})
@@ -110,6 +115,7 @@ func ChatHandler(svc *agent.AgentService) gin.HandlerFunc {
 				c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to create session"})
 				return
 			}
+			metrics.AgentSessionsActive.Inc()
 
 		case hasSession && hasArticle:
 			// reset mode — delete old session, create fresh one with same ID
@@ -174,6 +180,7 @@ func ChatHandler(svc *agent.AgentService) gin.HandlerFunc {
 			}
 
 			if event.Err != nil {
+				status = "error"
 				errPayload, _ := json.Marshal(gin.H{"error": event.Err.Error()})
 				sseEvent(c, "error", string(errPayload))
 				break
@@ -218,6 +225,9 @@ func ChatHandler(svc *agent.AgentService) gin.HandlerFunc {
 		// Persist user + assistant messages
 		assistantMsg := schema.AssistantMessage(assistantContent.String(), nil)
 		_ = svc.SessionStore.Append(sessionID, userMsg, assistantMsg)
+
+		// Record chat duration
+		metrics.AgentChatDuration.WithLabelValues(status).Observe(time.Since(start).Seconds())
 
 		// Send done event
 		sseEvent(c, "done", "{}")

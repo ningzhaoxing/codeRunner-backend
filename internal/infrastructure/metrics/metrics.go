@@ -59,6 +59,35 @@ var (
 	)
 )
 
+var (
+	// AgentChatDuration duration of agent chat requests
+	AgentChatDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "agent_chat_duration_seconds",
+			Help:    "Duration of agent chat requests",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"status"},
+	)
+
+	// AgentToolCalls total number of agent tool calls
+	AgentToolCalls = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "agent_tool_calls_total",
+			Help: "Total number of agent tool calls",
+		},
+		[]string{"tool_name", "status"},
+	)
+
+	// AgentSessionsActive number of active agent sessions
+	AgentSessionsActive = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "agent_sessions_active",
+			Help: "Number of active agent sessions",
+		},
+	)
+)
+
 func init() {
 	prometheus.MustRegister(
 		CodeExecutionTotal,
@@ -67,5 +96,8 @@ func init() {
 		PoolIdleGauge,
 		PoolAcquireDuration,
 		PoolReplenishTotal,
+		AgentChatDuration,
+		AgentToolCalls,
+		AgentSessionsActive,
 	)
 }

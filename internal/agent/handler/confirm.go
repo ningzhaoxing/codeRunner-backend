@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"codeRunner-siwu/internal/agent"
 	"codeRunner-siwu/internal/agent/tools"
+	"codeRunner-siwu/internal/infrastructure/metrics"
 
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/schema"
@@ -22,6 +24,8 @@ type confirmRequest struct {
 // ConfirmHandler executes the proposed code and resumes the agent with the result.
 func ConfirmHandler(svc *agent.AgentService) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		start := time.Now()
+		status := "success"
 		var req confirmRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid request body"})
@@ -113,8 +117,10 @@ func ConfirmHandler(svc *agent.AgentService) gin.HandlerFunc {
 			},
 		})
 		if resumeErr != nil {
+			status = "error"
 			errPayload, _ := json.Marshal(gin.H{"error": resumeErr.Error()})
 			sseEvent(c, "error", string(errPayload))
+			metrics.AgentChatDuration.WithLabelValues(status).Observe(time.Since(start).Seconds())
 			return
 		}
 
@@ -127,6 +133,7 @@ func ConfirmHandler(svc *agent.AgentService) gin.HandlerFunc {
 			}
 
 			if event.Err != nil {
+				status = "error"
 				errPayload, _ := json.Marshal(gin.H{"error": event.Err.Error()})
 				sseEvent(c, "error", string(errPayload))
 				break
@@ -167,6 +174,7 @@ func ConfirmHandler(svc *agent.AgentService) gin.HandlerFunc {
 			_ = svc.SessionStore.Append(req.SessionID, schema.AssistantMessage(assistantContent.String(), nil))
 		}
 
+		metrics.AgentChatDuration.WithLabelValues(status).Observe(time.Since(start).Seconds())
 		sseEvent(c, "done", "{}")
 	}
 }
