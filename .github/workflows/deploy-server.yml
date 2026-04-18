@@ -33,8 +33,21 @@ jobs:
               git clone git@github.com:ningzhaoxing/codeRunner-backend.git ${{ env.DEPLOY_PATH }}
             fi
             cd ${{ env.DEPLOY_PATH }}
+
+            # Preserve .env before reset (it's gitignored)
+            [ -f .env ] && cp .env /tmp/.env.bak
+
             git fetch origin main
             git reset --hard origin/main
+
+            # Restore .env
+            if [ -f /tmp/.env.bak ]; then
+              mv /tmp/.env.bak .env
+            elif [ ! -f .env ]; then
+              echo "ERROR: .env file not found at ${{ env.DEPLOY_PATH }}/.env"
+              echo "Please create it on the server first: cp .env.example .env && edit .env"
+              exit 1
+            fi
 
             # Build image on server
             /usr/bin/docker build \
@@ -47,10 +60,9 @@ jobs:
             /usr/bin/docker run -d \
               --name ${{ env.CONTAINER_NAME }} \
               --restart unless-stopped \
+              --env-file ${{ env.DEPLOY_PATH }}/.env \
               -e APP_MODE=server \
               -e APP_ENV=production \
-              -e JWT_SECRET=coderunner-jwt-secret-2026 \
-              -e AUTH_PASSWORD=coderunner-auth-pwd-2026 \
               -p 7979:7979 \
               -p 50011:50011 \
               ${{ env.IMAGE_NAME }}:latest
