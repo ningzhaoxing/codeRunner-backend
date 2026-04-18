@@ -56,8 +56,10 @@ jobs:
             # 登录 ghcr.io
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            # 进入部署目录，拉取并重启
-            cd ${{ secrets.DEPLOY_PATH }}
+            # 进入部署目录
+            cd /root/workspace/codeRunner/codeRunner-backend/docker-compose/product/server
+
+            # 拉取并重启
             docker compose pull
             docker compose up -d --remove-orphans
 
