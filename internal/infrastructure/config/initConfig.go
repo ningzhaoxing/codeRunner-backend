@@ -87,6 +87,8 @@ func LoadConfig(config *Config) error {
 		return err
 	}
 	expanded := os.ExpandEnv(string(raw))
+	fmt.Printf("[DEBUG] QWEN_API_KEY env = %q\n", os.Getenv("QWEN_API_KEY"))
+	fmt.Printf("[DEBUG] expanded config (agent section):\n%s\n", expanded[strings.Index(expanded, "agent:"):])
 
 	viper.SetConfigType("yaml")
 	if err := viper.ReadConfig(strings.NewReader(expanded)); err != nil {
