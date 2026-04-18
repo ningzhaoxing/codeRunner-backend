@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"go.uber.org/zap"
 	"github.com/spf13/viper"
@@ -79,18 +80,18 @@ type LoggerConfig struct {
 }
 
 func LoadConfig(config *Config) error {
-	viper.SetConfigFile(configPath)
-	if err := viper.ReadInConfig(); err != nil {
-		zap.S().Error("infrastructure-config LoadConfig()的 viper.ReadInConfig err  %v", err)
+	// 读取 yaml 文件并展开 ${ENV_VAR} 引用
+	raw, err := os.ReadFile(configPath)
+	if err != nil {
+		zap.S().Error("infrastructure-config LoadConfig() read file err %v", err)
 		return err
 	}
+	expanded := os.ExpandEnv(string(raw))
 
-	// 展开配置中的 ${ENV_VAR} 引用
-	for _, key := range viper.AllKeys() {
-		val := viper.GetString(key)
-		if val != "" && val != os.ExpandEnv(val) {
-			viper.Set(key, os.ExpandEnv(val))
-		}
+	viper.SetConfigType("yaml")
+	if err := viper.ReadConfig(strings.NewReader(expanded)); err != nil {
+		zap.S().Error("infrastructure-config LoadConfig()的 viper.ReadConfig err %v", err)
+		return err
 	}
 
 	if err := viper.Unmarshal(config); err != nil {
