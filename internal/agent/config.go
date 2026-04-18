@@ -26,6 +26,10 @@ type AgentConfig struct {
 		APIKey string `yaml:"api_key"`
 		Model  string `yaml:"model"`
 	} `yaml:"openai"`
+	Qwen struct {
+		APIKey string `yaml:"api_key"`
+		Model  string `yaml:"model"`
+	} `yaml:"qwen"`
 }
 
 func (c *AgentConfig) GetSessionTTL() time.Duration {

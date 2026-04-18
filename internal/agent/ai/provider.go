@@ -18,6 +18,10 @@ type Config struct {
 		APIKey string
 		Model  string
 	}
+	Qwen struct {
+		APIKey string
+		Model  string
+	}
 }
 
 type Provider interface {
@@ -30,6 +34,8 @@ func NewProvider(ctx context.Context, cfg Config) (Provider, error) {
 		return NewClaudeProvider(ctx, cfg)
 	case "openai":
 		return NewOpenAIProvider(ctx, cfg)
+	case "qwen":
+		return NewQwenProvider(ctx, cfg)
 	default:
 		return nil, fmt.Errorf("unsupported AI provider: %s", cfg.Provider)
 	}

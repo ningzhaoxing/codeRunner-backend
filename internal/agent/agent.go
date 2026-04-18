@@ -41,6 +41,8 @@ func NewAgentService(ctx context.Context, cfg AgentConfig, dataDir string) (*Age
 	aiCfg.Claude.Model = cfg.Claude.Model
 	aiCfg.OpenAI.APIKey = cfg.OpenAI.APIKey
 	aiCfg.OpenAI.Model = cfg.OpenAI.Model
+	aiCfg.Qwen.APIKey = cfg.Qwen.APIKey
+	aiCfg.Qwen.Model = cfg.Qwen.Model
 	provider, err := ai.NewProvider(ctx, aiCfg)
 	if err != nil {
 		return nil, fmt.Errorf("create AI provider: %w", err)

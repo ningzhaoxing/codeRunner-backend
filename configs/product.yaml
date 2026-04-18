@@ -30,9 +30,9 @@ logger:
   path: "./app.log"
 
 agent:
-  enabled: false
+  enabled: true
   api_key: ${AGENT_API_KEY}
-  provider: claude
+  provider: qwen
   max_steps: 10
   session_ttl: 3600
   proposal_ttl: 600
@@ -47,3 +47,6 @@ agent:
   openai:
     api_key: ${OPENAI_API_KEY}
     model: gpt-4o
+  qwen:
+    api_key: ${QWEN_API_KEY}
+    model: qwen-plus

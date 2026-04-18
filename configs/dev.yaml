@@ -50,3 +50,6 @@ agent:
   openai:
     api_key: ${OPENAI_API_KEY}
     model: gpt-4o
+  qwen:
+    api_key: ${QWEN_API_KEY}
+    model: qwen-plus
