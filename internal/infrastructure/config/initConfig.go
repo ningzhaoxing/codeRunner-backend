@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/mitchellh/mapstructure"
 	"go.uber.org/zap"
 	"github.com/spf13/viper"
 	"codeRunner-siwu/internal/agent"
@@ -87,8 +88,6 @@ func LoadConfig(config *Config) error {
 		return err
 	}
 	expanded := os.ExpandEnv(string(raw))
-	fmt.Printf("[DEBUG] QWEN_API_KEY env = %q\n", os.Getenv("QWEN_API_KEY"))
-	fmt.Printf("[DEBUG] expanded config (agent section):\n%s\n", expanded[strings.Index(expanded, "agent:"):])
 
 	viper.SetConfigType("yaml")
 	if err := viper.ReadConfig(strings.NewReader(expanded)); err != nil {
@@ -96,7 +95,9 @@ func LoadConfig(config *Config) error {
 		return err
 	}
 
-	if err := viper.Unmarshal(config); err != nil {
+	if err := viper.Unmarshal(config, func(dc *mapstructure.DecoderConfig) {
+		dc.TagName = "yaml"
+	}); err != nil {
 		zap.S().Error("infrastructure-config LoadConfig()的 viper.Unmarshal err  %v", err)
 		return err
 	}
