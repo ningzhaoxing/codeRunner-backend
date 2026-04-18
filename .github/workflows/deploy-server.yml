@@ -53,13 +53,17 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           command_timeout: 10m
           script: |
+            # 进入项目目录，拉取最新代码
+            cd /root/workspace/codeRunner/codeRunner-backend
+            git pull origin main
+
             # 登录 ghcr.io
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            # 进入部署目录
-            cd /root/workspace/codeRunner/codeRunner-backend/docker-compose/product/server
+            # 进入 docker-compose 目录
+            cd docker-compose/product/server
 
-            # 拉取并重启
+            # 拉取最新镜像并重启
             docker compose pull
             docker compose up -d --remove-orphans
 
