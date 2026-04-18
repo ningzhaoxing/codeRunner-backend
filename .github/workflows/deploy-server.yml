@@ -49,6 +49,8 @@ jobs:
               --restart unless-stopped \
               -e APP_MODE=server \
               -e APP_ENV=production \
+              -e JWT_SECRET=coderunner-jwt-secret-2026 \
+              -e AUTH_PASSWORD=coderunner-auth-pwd-2026 \
               -p 7979:7979 \
               -p 50011:50011 \
               ${{ env.IMAGE_NAME }}:latest

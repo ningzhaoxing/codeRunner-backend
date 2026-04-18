@@ -2,10 +2,12 @@ version: '3.8'
 
 services:
   code-runner-server:
-    image: ghcr.io/${GITHUB_REPOSITORY:-local}/coderunner-server:latest
+    image: coderunner-server:latest
     environment:
       - APP_MODE=server
       - APP_ENV=production
+      - JWT_SECRET=${JWT_SECRET}
+      - AUTH_PASSWORD=${AUTH_PASSWORD}
     ports:
       - "7979:7979"
       - "50011:50011"
