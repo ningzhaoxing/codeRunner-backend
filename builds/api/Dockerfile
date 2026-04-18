@@ -20,9 +20,11 @@ FROM alpine:latest
 RUN adduser -D -u 10000 runner
 
 WORKDIR /app
-COPY --from=builder --chown=runner /app/code-runner .
-COPY --chown=runner configs/dev.yaml ./configs/
-COPY --chown=runner configs/product.yaml ./configs/
+COPY --from=builder /app/code-runner .
+COPY configs/dev.yaml ./configs/
+COPY configs/product.yaml ./configs/
+
+RUN chown -R runner:runner /app
 
 USER runner
 
