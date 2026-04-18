@@ -3,49 +3,19 @@ name: Deploy Server
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/coderunner-server
+  IMAGE_NAME: coderunner-server
+  CONTAINER_NAME: coderunner-server
+  DEPLOY_PATH: /root/workspace/codeRunner/codeRunner-backend
 
 jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract short SHA
-        id: sha
-        run: echo "short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: builds/api/Dockerfile
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.sha.outputs.short }}
-
   deploy:
     runs-on: ubuntu-latest
-    needs: build-and-push
 
     steps:
-      - name: Deploy to server via SSH
+      - name: Deploy on server
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -53,19 +23,31 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           command_timeout: 10m
           script: |
-            # 进入项目目录，拉取最新代码
-            cd /root/workspace/codeRunner/codeRunner-backend
-            git pull origin main
+            # Pull latest code
+            if [ ! -d "${{ env.DEPLOY_PATH }}/.git" ]; then
+              mkdir -p ${{ env.DEPLOY_PATH }}
+              git clone https://github.com/ningzhaoxing/codeRunner-backend.git ${{ env.DEPLOY_PATH }}
+            fi
+            cd ${{ env.DEPLOY_PATH }}
+            git fetch origin main
+            git reset --hard origin/main
 
-            # 登录 ghcr.io
-            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            # Build image on server
+            /usr/bin/docker build \
+              -f builds/api/Dockerfile \
+              -t ${{ env.IMAGE_NAME }}:latest .
 
-            # 进入 docker-compose 目录
-            cd docker-compose/product/server
+            # Restart container
+            /usr/bin/docker stop ${{ env.CONTAINER_NAME }} 2>/dev/null || true
+            /usr/bin/docker rm ${{ env.CONTAINER_NAME }} 2>/dev/null || true
+            /usr/bin/docker run -d \
+              --name ${{ env.CONTAINER_NAME }} \
+              --restart unless-stopped \
+              -e APP_MODE=server \
+              -e APP_ENV=production \
+              -p 7979:7979 \
+              -p 50011:50011 \
+              ${{ env.IMAGE_NAME }}:latest
 
-            # 拉取最新镜像并重启
-            docker compose pull
-            docker compose up -d --remove-orphans
-
-            # 清理旧镜像
-            docker image prune -f
+            # Cleanup
+            /usr/bin/docker image prune -f
