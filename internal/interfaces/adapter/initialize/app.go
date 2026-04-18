@@ -3,12 +3,15 @@ package initialize
 import (
 	"context"
 	"fmt"
-	etcd "go.etcd.io/etcd/client/v3"
-	"go.uber.org/zap"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"codeRunner-siwu/internal/agent"
+	"codeRunner-siwu/internal/interfaces/adapter/router"
+	etcd "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
 )
 
 func RunServer() {
@@ -33,7 +36,16 @@ func RunServer() {
 	go func() {
 		url := fmt.Sprintf("%s:%s", c.Server.App.Host, c.Server.App.Port)
 		fmt.Println(url)
-		if err := routeEngine().Run(url); err != nil {
+		r := routeEngine()
+		if c.Agent.Enabled {
+			agentSvc, err := agent.NewAgentService(ctx, c.Agent, ".")
+			if err != nil {
+				zap.S().Warnf("agent service init failed, agent routes disabled: %v", err)
+			} else {
+				router.AgentRouter(r, agentSvc)
+			}
+		}
+		if err := r.Run(url); err != nil {
 			panic("http服务启动失败" + err.Error())
 		}
 	}()
