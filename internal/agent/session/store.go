@@ -20,7 +20,7 @@ type SessionMeta struct {
 	LastActiveAt time.Time `json:"last_active_at"`
 }
 
-type SessionStore struct {
+type FileStore struct {
 	baseDir string
 	ttl     time.Duration
 	locks   sync.Map // sessionID -> *sync.Mutex
@@ -28,17 +28,17 @@ type SessionStore struct {
 	cancel  func()
 }
 
-func NewSessionStore(baseDir string, ttl time.Duration) (*SessionStore, error) {
+func NewFileStore(baseDir string, ttl time.Duration) (*FileStore, error) {
 	if err := os.MkdirAll(baseDir, 0755); err != nil {
 		return nil, fmt.Errorf("create session dir: %w", err)
 	}
-	s := &SessionStore{baseDir: baseDir, ttl: ttl}
+	s := &FileStore{baseDir: baseDir, ttl: ttl}
 	return s, nil
 }
 
 // StartCleanup starts a background goroutine that periodically removes expired sessions.
 // Call the returned cancel func to stop it (e.g., on server shutdown).
-func (s *SessionStore) StartCleanup(interval time.Duration) func() {
+func (s *FileStore) StartCleanup(interval time.Duration) func() {
 	done := make(chan struct{})
 	go func() {
 		ticker := time.NewTicker(interval)
@@ -57,20 +57,20 @@ func (s *SessionStore) StartCleanup(interval time.Duration) func() {
 	return cancel
 }
 
-func (s *SessionStore) getLock(sessionID string) *sync.Mutex {
+func (s *FileStore) getLock(sessionID string) *sync.Mutex {
 	v, _ := s.locks.LoadOrStore(sessionID, &sync.Mutex{})
 	return v.(*sync.Mutex)
 }
 
-func (s *SessionStore) jsonlPath(sessionID string) string {
+func (s *FileStore) jsonlPath(sessionID string) string {
 	return filepath.Join(s.baseDir, sessionID+".jsonl")
 }
 
-func (s *SessionStore) metaPath(sessionID string) string {
+func (s *FileStore) metaPath(sessionID string) string {
 	return filepath.Join(s.baseDir, sessionID+".meta.json")
 }
 
-func (s *SessionStore) Create(sessionID, instruction string) error {
+func (s *FileStore) Create(sessionID, instruction string) error {
 	mu := s.getLock(sessionID)
 	mu.Lock()
 	defer mu.Unlock()
@@ -102,7 +102,7 @@ func (s *SessionStore) Create(sessionID, instruction string) error {
 	return nil
 }
 
-func (s *SessionStore) Exists(sessionID string) bool {
+func (s *FileStore) Exists(sessionID string) bool {
 	_, ok := s.metas.Load(sessionID)
 	if ok {
 		return true
@@ -112,7 +112,7 @@ func (s *SessionStore) Exists(sessionID string) bool {
 	return err == nil
 }
 
-func (s *SessionStore) GetMeta(sessionID string) (*SessionMeta, bool) {
+func (s *FileStore) GetMeta(sessionID string) (*SessionMeta, bool) {
 	if v, ok := s.metas.Load(sessionID); ok {
 		meta := v.(*SessionMeta)
 		if time.Since(meta.LastActiveAt) > s.ttl {
@@ -136,7 +136,7 @@ func (s *SessionStore) GetMeta(sessionID string) (*SessionMeta, bool) {
 	return &meta, true
 }
 
-func (s *SessionStore) GetMessages(sessionID string) ([]*schema.Message, error) {
+func (s *FileStore) GetMessages(sessionID string) ([]*schema.Message, error) {
 	mu := s.getLock(sessionID)
 	mu.Lock()
 	defer mu.Unlock()
@@ -166,7 +166,7 @@ func (s *SessionStore) GetMessages(sessionID string) ([]*schema.Message, error) 
 	return msgs, scanner.Err()
 }
 
-func (s *SessionStore) Append(sessionID string, msgs ...*schema.Message) error {
+func (s *FileStore) Append(sessionID string, msgs ...*schema.Message) error {
 	mu := s.getLock(sessionID)
 	mu.Lock()
 	defer mu.Unlock()
@@ -192,7 +192,7 @@ func (s *SessionStore) Append(sessionID string, msgs ...*schema.Message) error {
 	return nil
 }
 
-func (s *SessionStore) Delete(sessionID string) {
+func (s *FileStore) Delete(sessionID string) {
 	mu := s.getLock(sessionID)
 	mu.Lock()
 	defer mu.Unlock()
@@ -203,7 +203,7 @@ func (s *SessionStore) Delete(sessionID string) {
 	s.locks.Delete(sessionID)
 }
 
-func (s *SessionStore) touchMeta(sessionID string) {
+func (s *FileStore) touchMeta(sessionID string) {
 	if v, ok := s.metas.Load(sessionID); ok {
 		meta := v.(*SessionMeta)
 		meta.LastActiveAt = time.Now()
@@ -213,7 +213,7 @@ func (s *SessionStore) touchMeta(sessionID string) {
 	}
 }
 
-func (s *SessionStore) cleanExpired() {
+func (s *FileStore) cleanExpired() {
 	s.metas.Range(func(key, value any) bool {
 		meta := value.(*SessionMeta)
 		if time.Since(meta.LastActiveAt) > s.ttl {

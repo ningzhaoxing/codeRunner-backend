@@ -16,7 +16,7 @@ import (
 type AgentService struct {
 	Cfg             AgentConfig
 	Provider        ai.Provider
-	SessionStore    *session.SessionStore
+	SessionStore    session.Store
 	CheckpointStore *checkpoint.MemoryCheckPointStore
 	Runner          *adk.Runner
 	Executor        CodeExecutor
@@ -48,8 +48,8 @@ func NewAgentService(ctx context.Context, cfg AgentConfig, dataDir string) (*Age
 		return nil, fmt.Errorf("create AI provider: %w", err)
 	}
 
-	// Session Store (JSONL)
-	sessionStore, err := session.NewSessionStore(dataDir+"/agent/sessions", cfg.GetSessionTTL())
+	// Session Store (JSONL file implementation)
+	sessionStore, err := session.NewFileStore(dataDir+"/agent/sessions", cfg.GetSessionTTL())
 	if err != nil {
 		return nil, fmt.Errorf("create session store: %w", err)
 	}
