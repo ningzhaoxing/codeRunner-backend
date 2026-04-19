@@ -2,7 +2,7 @@
 
 **让博客读者直接在浏览器中运行代码，无需跳转 IDE。**
 
-CodeRunner 是一个分布式代码执行后端，基于 DDD 架构设计。云端 Server 负责任务调度，内网 Client 节点在 Docker 沙箱中安全执行代码，支持 Go / Python / JavaScript / Java / C++ 五种语言。灵感来源于 Online Judge 系统。
+CodeRunner 是一个分布式代码执行后端，基于 DDD 架构设计。云端 Server 负责任务调度，内网 Client 节点在 Docker 沙箱中安全执行代码，支持 Go / Python / JavaScript / Java / C++ 五种语言。
 
 ## 特性
 
