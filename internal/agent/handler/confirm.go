@@ -163,8 +163,6 @@ func ConfirmHandler(svc *agent.AgentService) gin.HandlerFunc {
 				mv := event.Output.MessageOutput
 				if mv.IsStreaming && mv.MessageStream != nil {
 					stream := mv.MessageStream
-					mv.IsStreaming = false
-					mv.MessageStream = nil
 					for {
 						chunk, recvErr := stream.Recv()
 						if errors.Is(recvErr, io.EOF) {
@@ -179,15 +177,14 @@ func ConfirmHandler(svc *agent.AgentService) gin.HandlerFunc {
 						if chunk.Role == schema.Assistant {
 							assistantContent.WriteString(chunk.Content)
 						}
-						mv.Message = chunk
-						data, _ := json.Marshal(event)
+						data, _ := json.Marshal(chunk)
 						sseData(c, string(data))
 					}
 				} else if mv.Message != nil {
 					if mv.Message.Role == schema.Assistant {
 						assistantContent.WriteString(mv.Message.Content)
 					}
-					data, _ := json.Marshal(event)
+					data, _ := json.Marshal(mv.Message)
 					sseData(c, string(data))
 				}
 			}
