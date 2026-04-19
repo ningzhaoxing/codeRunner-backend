@@ -22,4 +22,6 @@ func AgentRouter(r *gin.Engine, svc *agent.AgentService) {
 	g := r.Group("/agent", agenthandler.AgentAPIKeyMiddleware(svc.Cfg.APIKey))
 	g.POST("/chat", agenthandler.ChatHandler(svc))
 	g.POST("/confirm", agenthandler.ConfirmHandler(svc))
+	g.GET("/sessions", agenthandler.ListSessionsHandler(svc))
+	g.GET("/sessions/:id/messages", agenthandler.GetSessionMessagesHandler(svc))
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -223,4 +224,25 @@ func (s *FileStore) cleanExpired() {
 		}
 		return true
 	})
+}
+
+func (s *FileStore) ListSessions() []*SessionMeta {
+	entries, err := os.ReadDir(s.baseDir)
+	if err != nil {
+		zap.S().Warnf("list sessions: read dir failed: %v", err)
+		return nil
+	}
+
+	var result []*SessionMeta
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" || filepath.Ext(strings.TrimSuffix(entry.Name(), ".json")) != ".meta" {
+			continue
+		}
+		sessionID := strings.TrimSuffix(entry.Name(), ".meta.json")
+		meta, ok := s.GetMeta(sessionID)
+		if ok {
+			result = append(result, meta)
+		}
+	}
+	return result
 }

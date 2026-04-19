@@ -17,6 +17,9 @@ type Store interface {
 	// GetMeta retrieves session metadata.
 	GetMeta(sessionID string) (*SessionMeta, bool)
 
+	// ListSessions returns metadata for all active (non-expired) sessions.
+	ListSessions() []*SessionMeta
+
 	// GetMessages retrieves all messages in a session.
 	GetMessages(sessionID string) ([]*schema.Message, error)
 
