@@ -2,7 +2,9 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -186,13 +188,18 @@ func ChatHandler(svc *agent.AgentService) gin.HandlerFunc {
 				break
 			}
 
-			// Capture interrupt ID and proposal info for the confirm handler
+			// Capture interrupt ID and proposal info, notify frontend
 			if event.Action != nil && event.Action.Interrupted != nil {
 				for _, ic := range event.Action.Interrupted.InterruptContexts {
 					if ic != nil && ic.IsRootCause {
 						svc.InterruptIDs.Store(sessionID, ic.ID)
 						if proposal, ok := ic.Info.(*tools.ProposalInfo); ok {
 							svc.Proposals.Store(sessionID, proposal)
+							payload, _ := json.Marshal(gin.H{
+								"type":     "proposal",
+								"proposal": proposal,
+							})
+							sseEvent(c, "interrupt", string(payload))
 						}
 						break
 					}
@@ -201,24 +208,39 @@ func ChatHandler(svc *agent.AgentService) gin.HandlerFunc {
 
 			if event.Output != nil && event.Output.MessageOutput != nil {
 				mv := event.Output.MessageOutput
-				msg, err := mv.GetMessage()
-				if err != nil {
-					continue
+				if mv.IsStreaming && mv.MessageStream != nil {
+					for {
+						chunk, recvErr := mv.MessageStream.Recv()
+						if errors.Is(recvErr, io.EOF) {
+							break
+						}
+						if recvErr != nil {
+							break
+						}
+						if chunk == nil || chunk.Content == "" {
+							continue
+						}
+						if chunk.Role == schema.Assistant {
+							assistantContent.WriteString(chunk.Content)
+						}
+						payload, _ := json.Marshal(gin.H{
+							"type":    "content",
+							"role":    chunk.Role,
+							"content": chunk.Content,
+						})
+						sseData(c, string(payload))
+					}
+				} else if mv.Message != nil && mv.Message.Content != "" {
+					if mv.Message.Role == schema.Assistant {
+						assistantContent.WriteString(mv.Message.Content)
+					}
+					payload, _ := json.Marshal(gin.H{
+						"type":    "content",
+						"role":    mv.Message.Role,
+						"content": mv.Message.Content,
+					})
+					sseData(c, string(payload))
 				}
-				if msg == nil {
-					continue
-				}
-
-				// Accumulate assistant content for storage
-				if msg.Role == schema.Assistant {
-					assistantContent.WriteString(msg.Content)
-				}
-
-				data, err := json.Marshal(event)
-				if err != nil {
-					continue
-				}
-				sseData(c, string(data))
 			}
 		}
 

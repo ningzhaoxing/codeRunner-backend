@@ -2,7 +2,9 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -146,6 +148,11 @@ func ConfirmHandler(svc *agent.AgentService) gin.HandlerFunc {
 						svc.InterruptIDs.Store(req.SessionID, ic.ID)
 						if p, ok := ic.Info.(*tools.ProposalInfo); ok {
 							svc.Proposals.Store(req.SessionID, p)
+							payload, _ := json.Marshal(gin.H{
+								"type":     "proposal",
+								"proposal": p,
+							})
+							sseEvent(c, "interrupt", string(payload))
 						}
 						break
 					}
@@ -154,18 +161,39 @@ func ConfirmHandler(svc *agent.AgentService) gin.HandlerFunc {
 
 			if event.Output != nil && event.Output.MessageOutput != nil {
 				mv := event.Output.MessageOutput
-				msg, msgErr := mv.GetMessage()
-				if msgErr != nil || msg == nil {
-					continue
+				if mv.IsStreaming && mv.MessageStream != nil {
+					for {
+						chunk, recvErr := mv.MessageStream.Recv()
+						if errors.Is(recvErr, io.EOF) {
+							break
+						}
+						if recvErr != nil {
+							break
+						}
+						if chunk == nil || chunk.Content == "" {
+							continue
+						}
+						if chunk.Role == schema.Assistant {
+							assistantContent.WriteString(chunk.Content)
+						}
+						payload, _ := json.Marshal(gin.H{
+							"type":    "content",
+							"role":    chunk.Role,
+							"content": chunk.Content,
+						})
+						sseData(c, string(payload))
+					}
+				} else if mv.Message != nil && mv.Message.Content != "" {
+					if mv.Message.Role == schema.Assistant {
+						assistantContent.WriteString(mv.Message.Content)
+					}
+					payload, _ := json.Marshal(gin.H{
+						"type":    "content",
+						"role":    mv.Message.Role,
+						"content": mv.Message.Content,
+					})
+					sseData(c, string(payload))
 				}
-				if msg.Role == schema.Assistant {
-					assistantContent.WriteString(msg.Content)
-				}
-				data, marshalErr := json.Marshal(event)
-				if marshalErr != nil {
-					continue
-				}
-				sseData(c, string(data))
 			}
 		}
 
