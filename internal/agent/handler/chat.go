@@ -2,9 +2,7 @@ package handler
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -208,39 +206,23 @@ func ChatHandler(svc *agent.AgentService) gin.HandlerFunc {
 
 			if event.Output != nil && event.Output.MessageOutput != nil {
 				mv := event.Output.MessageOutput
-				if mv.IsStreaming && mv.MessageStream != nil {
-					for {
-						chunk, recvErr := mv.MessageStream.Recv()
-						if errors.Is(recvErr, io.EOF) {
-							break
-						}
-						if recvErr != nil {
-							break
-						}
-						if chunk == nil || chunk.Content == "" {
-							continue
-						}
-						if chunk.Role == schema.Assistant {
-							assistantContent.WriteString(chunk.Content)
-						}
-						payload, _ := json.Marshal(gin.H{
-							"type":    "content",
-							"role":    chunk.Role,
-							"content": chunk.Content,
-						})
-						sseData(c, string(payload))
-					}
-				} else if mv.Message != nil && mv.Message.Content != "" {
-					if mv.Message.Role == schema.Assistant {
-						assistantContent.WriteString(mv.Message.Content)
-					}
-					payload, _ := json.Marshal(gin.H{
-						"type":    "content",
-						"role":    mv.Message.Role,
-						"content": mv.Message.Content,
-					})
-					sseData(c, string(payload))
+				msg, err := mv.GetMessage()
+				if err != nil || msg == nil {
+					continue
 				}
+				// Patch event so serialization includes actual content
+				mv.IsStreaming = false
+				mv.Message = msg
+				mv.MessageStream = nil
+
+				if msg.Role == schema.Assistant {
+					assistantContent.WriteString(msg.Content)
+				}
+				data, err := json.Marshal(event)
+				if err != nil {
+					continue
+				}
+				sseData(c, string(data))
 			}
 		}
 
