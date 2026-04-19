@@ -2,7 +2,9 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -159,22 +161,35 @@ func ConfirmHandler(svc *agent.AgentService) gin.HandlerFunc {
 
 			if event.Output != nil && event.Output.MessageOutput != nil {
 				mv := event.Output.MessageOutput
-				msg, msgErr := mv.GetMessage()
-				if msgErr != nil || msg == nil {
-					continue
+				if mv.IsStreaming && mv.MessageStream != nil {
+					stream := mv.MessageStream
+					mv.IsStreaming = false
+					mv.MessageStream = nil
+					for {
+						chunk, recvErr := stream.Recv()
+						if errors.Is(recvErr, io.EOF) {
+							break
+						}
+						if recvErr != nil {
+							break
+						}
+						if chunk == nil || chunk.Content == "" {
+							continue
+						}
+						if chunk.Role == schema.Assistant {
+							assistantContent.WriteString(chunk.Content)
+						}
+						mv.Message = chunk
+						data, _ := json.Marshal(event)
+						sseData(c, string(data))
+					}
+				} else if mv.Message != nil {
+					if mv.Message.Role == schema.Assistant {
+						assistantContent.WriteString(mv.Message.Content)
+					}
+					data, _ := json.Marshal(event)
+					sseData(c, string(data))
 				}
-				mv.IsStreaming = false
-				mv.Message = msg
-				mv.MessageStream = nil
-
-				if msg.Role == schema.Assistant {
-					assistantContent.WriteString(msg.Content)
-				}
-				data, marshalErr := json.Marshal(event)
-				if marshalErr != nil {
-					continue
-				}
-				sseData(c, string(data))
 			}
 		}
 
