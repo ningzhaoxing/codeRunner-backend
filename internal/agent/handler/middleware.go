@@ -8,7 +8,7 @@ import (
 
 func AgentAPIKeyMiddleware(expected string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if expected == "" || c.GetHeader("X-Agent-API-Key") != expected {
+		if expected != "" && c.GetHeader("X-Agent-API-Key") != expected {
 			c.JSON(http.StatusUnauthorized, gin.H{"message": "unauthorized"})
 			c.Abort()
 			return
