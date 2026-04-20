@@ -42,6 +42,25 @@ X-Agent-API-Key: <your-api-key>
 | 重置 | `session_id` 非空 + 有 `article_ctx` | 清空旧会话，以新文章上下文重建 |
 | 继续 | `session_id` 非空 + 无 `article_ctx` | 在已有会话上继续对话 |
 
+### 代码块级固定会话（推荐）
+
+为了让用户回到同一代码块时能恢复历史对话，推荐使用**确定性 session_id**：
+
+```javascript
+// 前端生成稳定的 session_id
+const visitorId = localStorage.getItem('visitor_id') || generateUUID()
+localStorage.setItem('visitor_id', visitorId)
+
+const blockId = `${articleId}-${blockIndex}` // 或用代码 hash
+const sessionId = sha256(`${visitorId}:${blockId}`)
+```
+
+**首次对话**：传 `session_id` + `article_ctx`，后端自动创建会话  
+**继续对话**：传同一个 `session_id`，无需 `article_ctx`，后端加载历史  
+**重新开始**：传同一个 `session_id` + 重新传 `article_ctx`，后端清空历史重建
+
+这样每个访客在每个代码块上都有独立的、可恢复的对话历史。
+
 ### SSE 响应
 
 响应 `Content-Type: text/event-stream`，每个事件格式：
@@ -156,13 +175,41 @@ data: {"type":"done"}
 }
 ```
 
-### SSE 响应
+### 确认执行的 SSE 响应
 
 SSE 流，依次可能出现：`message`（executing）→ `stream_chunk` → `done`。
 
 ---
 
-## 3. 会话列表 — GET /agent/sessions
+## 3. 取消执行 — POST /agent/cancel
+
+取消正在进行的 Agent 对话或代码执行。
+
+### 请求体
+
+```json
+{
+  "session_id": "uuid-xxx"
+}
+```
+
+### 响应
+
+成功：
+
+```json
+{ "message": "cancelled" }  // 200
+```
+
+无活跃运行：
+
+```json
+{ "message": "no active run for this session" }  // 404
+```
+
+---
+
+## 4. 会话列表 — GET /agent/sessions
 
 获取所有活跃（未过期）的会话元信息。
 
@@ -183,11 +230,11 @@ SSE 流，依次可能出现：`message`（executing）→ `stream_chunk` → `d
 
 ---
 
-## 4. 会话消息历史 — GET /agent/sessions/:id/messages
+## 5. 会话消息历史 — GET /agent/sessions/:id/messages
 
 获取指定会话的完整对话记录。
 
-### 响应
+### 消息历史响应
 
 ```json
 {

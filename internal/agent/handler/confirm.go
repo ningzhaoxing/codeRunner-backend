@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -75,7 +76,12 @@ func ConfirmHandler(svc *agent.AgentService) gin.HandlerFunc {
 		// Notify client that execution is starting
 		sseEvent(c, "message", ssePayload{Content: "executing"})
 
-		ctx := c.Request.Context()
+		ctx, cancel := context.WithCancel(c.Request.Context())
+		svc.Cancels.Store(req.SessionID, cancel)
+		defer func() {
+			svc.Cancels.Delete(req.SessionID)
+			cancel()
+		}()
 
 		// Execute the code synchronously
 		result, execErr := svc.Executor.Execute(ctx, agent.ExecuteRequest{

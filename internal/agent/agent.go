@@ -29,6 +29,9 @@ type AgentService struct {
 	// Proposals maps sessionID → *tools.ProposalInfo.
 	// Populated by the chat handler when a propose_execution interrupt is observed.
 	Proposals sync.Map // sessionID → *tools.ProposalInfo
+
+	// Cancels maps sessionID → context.CancelFunc for in-flight agent runs.
+	Cancels sync.Map // sessionID → context.CancelFunc
 }
 
 func NewAgentService(ctx context.Context, cfg AgentConfig, dataDir string) (*AgentService, error) {

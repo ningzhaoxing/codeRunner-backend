@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -193,8 +194,14 @@ func ChatHandler(svc *agent.AgentService) gin.HandlerFunc {
 			}
 		}()
 
-		// Run agent
-		ctx := c.Request.Context()
+		// Run agent with cancellable context
+		ctx, cancel := context.WithCancel(c.Request.Context())
+		svc.Cancels.Store(sessionID, cancel)
+		defer func() {
+			svc.Cancels.Delete(sessionID)
+			cancel()
+		}()
+
 		iter := svc.Runner.Run(ctx, allMessages, adk.WithCheckPointID(sessionID))
 
 		var assistantContent strings.Builder
