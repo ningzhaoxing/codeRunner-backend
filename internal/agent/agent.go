@@ -8,11 +8,16 @@ import (
 	"codeRunner-siwu/internal/agent/ai"
 	"codeRunner-siwu/internal/agent/checkpoint"
 	"codeRunner-siwu/internal/agent/session"
+	"codeRunner-siwu/internal/agent/tools"
 
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/adk/middlewares/summarization"
+	"github.com/cloudwego/eino/components/tool"
+	"github.com/cloudwego/eino/compose"
 	"go.uber.org/zap"
 )
+
+const agentInstruction = `You are a code learning assistant. When the user asks you to run, execute, or test code, you MUST call the propose_execution tool with the complete code. Do NOT guess or simulate the output yourself — always propose execution so the user can confirm and the runtime returns real results. Only after the tool returns a result should you explain the output.`
 
 type AgentService struct {
 	Cfg             AgentConfig
@@ -74,12 +79,18 @@ func NewAgentService(ctx context.Context, cfg AgentConfig, dataDir string) (*Age
 		return nil, fmt.Errorf("create summarization middleware: %w", err)
 	}
 
-	// ChatModelAgent with summarization middleware
+	// ChatModelAgent with summarization middleware and propose_execution tool
 	chatAgent, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
 		Name:          "code-learning-agent",
+		Instruction:   agentInstruction,
 		Model:         provider.ChatModel(),
 		MaxIterations: cfg.MaxSteps,
-		Handlers:      []adk.ChatModelAgentMiddleware{summMw},
+		ToolsConfig: adk.ToolsConfig{
+			ToolsNodeConfig: compose.ToolsNodeConfig{
+				Tools: []tool.BaseTool{tools.NewProposeExecutionTool()},
+			},
+		},
+		Handlers: []adk.ChatModelAgentMiddleware{summMw},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create chat model agent: %w", err)
