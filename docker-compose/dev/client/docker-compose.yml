@@ -27,6 +27,7 @@ services:
     mem_limit: 512m
     memswap_limit: 512m
     cpus: "1.0"
+    pids_limit: 128
     volumes:
       - /tmp/golang-0:/app
 
@@ -44,6 +45,7 @@ services:
     mem_limit: 512m
     memswap_limit: 512m
     cpus: "1.0"
+    pids_limit: 128
     volumes:
       - /tmp/python-0:/app
 
@@ -61,6 +63,7 @@ services:
     mem_limit: 512m
     memswap_limit: 512m
     cpus: "1.0"
+    pids_limit: 128
     volumes:
       - /tmp/c-0:/app
 
@@ -78,6 +81,7 @@ services:
     mem_limit: 512m
     memswap_limit: 512m
     cpus: "1.0"
+    pids_limit: 128
     volumes:
       - /tmp/java-0:/app
 
@@ -95,5 +99,6 @@ services:
     mem_limit: 512m
     memswap_limit: 512m
     cpus: "1.0"
+    pids_limit: 128
     volumes:
       - /tmp/javascript-0:/app
