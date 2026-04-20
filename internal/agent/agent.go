@@ -10,6 +10,7 @@ import (
 	"codeRunner-siwu/internal/agent/session"
 
 	"github.com/cloudwego/eino/adk"
+	"github.com/cloudwego/eino/adk/middlewares/summarization"
 	"go.uber.org/zap"
 )
 
@@ -59,11 +60,23 @@ func NewAgentService(ctx context.Context, cfg AgentConfig, dataDir string) (*Age
 	checkpointStore := checkpoint.NewMemoryCheckPointStore(cfg.GetSessionTTL())
 	checkpointStore.StartCleanup(cfg.GetSessionTTL() / 6)
 
-	// ChatModelAgent — tools will be added in Task 4, for now create without tools
+	// Context compression middleware
+	summMw, err := summarization.New(ctx, &summarization.Config{
+		Model: provider.ChatModel(),
+		Trigger: &summarization.TriggerCondition{
+			ContextTokens: 100000,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create summarization middleware: %w", err)
+	}
+
+	// ChatModelAgent with summarization middleware
 	chatAgent, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
 		Name:          "code-learning-agent",
 		Model:         provider.ChatModel(),
 		MaxIterations: cfg.MaxSteps,
+		Handlers:      []adk.ChatModelAgentMiddleware{summMw},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create chat model agent: %w", err)
