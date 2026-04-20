@@ -1,9 +1,9 @@
 server:
   etcd:
-    endpoints: "8.154.36.180:2378"
+    endpoints: "101.42.7.205:2378"
     key: "/services/code-runner"
   grpc:
-    host: "8.154.36.180"
+    host: "101.42.7.205"
     port: "50011"
   app:
     host: "0.0.0.0"
@@ -14,7 +14,7 @@ server:
 
 client:
   server:
-    host: "8.154.36.180"
+    host: "101.42.7.205"
     port: "7979"
     path: "ws"
   app:
