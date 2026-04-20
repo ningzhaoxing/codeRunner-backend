@@ -6,6 +6,7 @@ services:
       context: ../../..
       dockerfile: builds/api/Dockerfile
     restart: unless-stopped
+    user: root
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /tmp:/app/tmp:shared
