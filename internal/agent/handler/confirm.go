@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -74,8 +73,7 @@ func ConfirmHandler(svc *agent.AgentService) gin.HandlerFunc {
 		c.Status(http.StatusOK)
 
 		// Notify client that execution is starting
-		execPayload, _ := json.Marshal(gin.H{"type": "executing"})
-		sseData(c, string(execPayload))
+		sseEvent(c, "message", ssePayload{Content: "executing"})
 
 		ctx := c.Request.Context()
 
@@ -120,8 +118,7 @@ func ConfirmHandler(svc *agent.AgentService) gin.HandlerFunc {
 		})
 		if resumeErr != nil {
 			status = "error"
-			errPayload, _ := json.Marshal(gin.H{"error": resumeErr.Error()})
-			sseEvent(c, "error", string(errPayload))
+			sseEvent(c, "error", ssePayload{Error: resumeErr.Error()})
 			metrics.AgentChatDuration.WithLabelValues(status).Observe(time.Since(start).Seconds())
 			return
 		}
@@ -136,8 +133,7 @@ func ConfirmHandler(svc *agent.AgentService) gin.HandlerFunc {
 
 			if event.Err != nil {
 				status = "error"
-				errPayload, _ := json.Marshal(gin.H{"error": event.Err.Error()})
-				sseEvent(c, "error", string(errPayload))
+				sseEvent(c, "error", ssePayload{Error: event.Err.Error()})
 				break
 			}
 
@@ -148,11 +144,7 @@ func ConfirmHandler(svc *agent.AgentService) gin.HandlerFunc {
 						svc.InterruptIDs.Store(req.SessionID, ic.ID)
 						if p, ok := ic.Info.(*tools.ProposalInfo); ok {
 							svc.Proposals.Store(req.SessionID, p)
-							payload, _ := json.Marshal(gin.H{
-								"type":     "proposal",
-								"proposal": p,
-							})
-							sseEvent(c, "interrupt", string(payload))
+							sseEvent(c, "interrupt", ssePayload{Proposal: p})
 						}
 						break
 					}
@@ -171,21 +163,23 @@ func ConfirmHandler(svc *agent.AgentService) gin.HandlerFunc {
 						if recvErr != nil {
 							break
 						}
-						if chunk == nil || chunk.Content == "" {
+						if chunk == nil {
 							continue
 						}
-						if chunk.Role == schema.Assistant {
+						if chunk.Role == schema.Assistant && chunk.Content != "" {
 							assistantContent.WriteString(chunk.Content)
 						}
-						data, _ := json.Marshal(chunk)
-						sseData(c, string(data))
+						sseEvent(c, "stream_chunk", ssePayload{Content: chunk.Content})
 					}
 				} else if mv.Message != nil {
 					if mv.Message.Role == schema.Assistant {
 						assistantContent.WriteString(mv.Message.Content)
 					}
-					data, _ := json.Marshal(mv.Message)
-					sseData(c, string(data))
+					eventType := "message"
+					if mv.Message.Role == schema.Tool {
+						eventType = "tool_result"
+					}
+					sseEvent(c, eventType, ssePayload{Content: mv.Message.Content})
 				}
 			}
 		}
@@ -196,6 +190,6 @@ func ConfirmHandler(svc *agent.AgentService) gin.HandlerFunc {
 		}
 
 		metrics.AgentChatDuration.WithLabelValues(status).Observe(time.Since(start).Seconds())
-		sseEvent(c, "done", "{}")
+		sseEvent(c, "done", ssePayload{})
 	}
 }

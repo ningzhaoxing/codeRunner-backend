@@ -40,13 +40,23 @@ type chatRequest struct {
 
 // --- SSE helpers ---
 
-func sseEvent(c *gin.Context, event, data string) {
-	fmt.Fprintf(c.Writer, "event: %s\ndata: %s\n\n", event, data)
+type ssePayload struct {
+	Type      string      `json:"type"`
+	Content   string      `json:"content,omitempty"`
+	ToolCalls interface{} `json:"tool_calls,omitempty"`
+	Error     string      `json:"error,omitempty"`
+	Proposal  interface{} `json:"proposal,omitempty"`
+	SessionID string      `json:"session_id,omitempty"`
+}
+
+func sseEvent(c *gin.Context, event string, payload ssePayload) {
+	data, _ := json.Marshal(payload)
+	fmt.Fprintf(c.Writer, "event: %s\ndata: %s\n\n", event, string(data))
 	c.Writer.Flush()
 }
 
-func sseData(c *gin.Context, data string) {
-	fmt.Fprintf(c.Writer, "data: %s\n\n", data)
+func sseKeepAlive(c *gin.Context) {
+	fmt.Fprintf(c.Writer, ": keepalive\n\n")
 	c.Writer.Flush()
 }
 
@@ -165,9 +175,23 @@ func ChatHandler(svc *agent.AgentService) gin.HandlerFunc {
 
 		// Send session_created event for new sessions
 		if isNew {
-			payload, _ := json.Marshal(gin.H{"session_id": sessionID})
-			sseEvent(c, "session_created", string(payload))
+			sseEvent(c, "session_created", ssePayload{SessionID: sessionID})
 		}
+
+		// Keep-alive: send heartbeat every 5s to prevent connection timeout
+		kaStop := make(chan struct{})
+		go func() {
+			ticker := time.NewTicker(5 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-kaStop:
+					return
+				case <-ticker.C:
+					sseKeepAlive(c)
+				}
+			}
+		}()
 
 		// Run agent
 		ctx := c.Request.Context()
@@ -183,8 +207,7 @@ func ChatHandler(svc *agent.AgentService) gin.HandlerFunc {
 
 			if event.Err != nil {
 				status = "error"
-				errPayload, _ := json.Marshal(gin.H{"error": event.Err.Error()})
-				sseEvent(c, "error", string(errPayload))
+				sseEvent(c, "error", ssePayload{Type: "error", Error: event.Err.Error()})
 				break
 			}
 
@@ -195,11 +218,7 @@ func ChatHandler(svc *agent.AgentService) gin.HandlerFunc {
 						svc.InterruptIDs.Store(sessionID, ic.ID)
 						if proposal, ok := ic.Info.(*tools.ProposalInfo); ok {
 							svc.Proposals.Store(sessionID, proposal)
-							payload, _ := json.Marshal(gin.H{
-								"type":     "proposal",
-								"proposal": proposal,
-							})
-							sseEvent(c, "interrupt", string(payload))
+							sseEvent(c, "interrupt", ssePayload{Type: "proposal", Proposal: proposal})
 						}
 						break
 					}
@@ -218,24 +237,36 @@ func ChatHandler(svc *agent.AgentService) gin.HandlerFunc {
 						if recvErr != nil {
 							break
 						}
-						if chunk == nil || chunk.Content == "" {
+						if chunk == nil {
 							continue
 						}
-						if chunk.Role == schema.Assistant {
+						if chunk.Role == schema.Assistant && chunk.Content != "" {
 							assistantContent.WriteString(chunk.Content)
 						}
-						data, _ := json.Marshal(chunk)
-						sseData(c, string(data))
+						p := ssePayload{Type: "stream_chunk", Content: chunk.Content}
+						if len(chunk.ToolCalls) > 0 {
+							p.ToolCalls = chunk.ToolCalls
+						}
+						sseEvent(c, "stream_chunk", p)
 					}
 				} else if mv.Message != nil {
 					if mv.Message.Role == schema.Assistant {
 						assistantContent.WriteString(mv.Message.Content)
 					}
-					data, _ := json.Marshal(mv.Message)
-					sseData(c, string(data))
+					eventType := "message"
+					if mv.Message.Role == schema.Tool {
+						eventType = "tool_result"
+					}
+					p := ssePayload{Type: eventType, Content: mv.Message.Content}
+					if len(mv.Message.ToolCalls) > 0 {
+						p.ToolCalls = mv.Message.ToolCalls
+					}
+					sseEvent(c, eventType, p)
 				}
 			}
 		}
+
+		close(kaStop)
 
 		// Persist user + assistant messages
 		assistantMsg := schema.AssistantMessage(assistantContent.String(), nil)
@@ -245,6 +276,6 @@ func ChatHandler(svc *agent.AgentService) gin.HandlerFunc {
 		metrics.AgentChatDuration.WithLabelValues(status).Observe(time.Since(start).Seconds())
 
 		// Send done event
-		sseEvent(c, "done", "{}")
+		sseEvent(c, "done", ssePayload{Type: "done"})
 	}
 }
