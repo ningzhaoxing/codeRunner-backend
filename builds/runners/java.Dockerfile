@@ -1,7 +1,7 @@
-FROM openjdk:21-jdk-slim
+FROM eclipse-temurin:21-jdk-alpine
 
 # 创建用户 runner，并设置 UID 为 10000
-RUN useradd -m -u 10000 runner
+RUN adduser -D -u 10000 runner
 
 # 设置工作目录为 /app（Docker 会自动创建）
 WORKDIR /app
