@@ -9,7 +9,7 @@ import (
 
 func TestSessionStore_CreateAndGetMessages(t *testing.T) {
 	dir := t.TempDir()
-	store, err := NewSessionStore(dir, time.Hour)
+	store, err := NewFileStore(dir, time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +54,7 @@ func TestSessionStore_CreateAndGetMessages(t *testing.T) {
 
 func TestSessionStore_Delete(t *testing.T) {
 	dir := t.TempDir()
-	store, _ := NewSessionStore(dir, time.Hour)
+	store, _ := NewFileStore(dir, time.Hour)
 
 	sid := "session-del"
 	store.Create(sid, "test")
@@ -67,7 +67,7 @@ func TestSessionStore_Delete(t *testing.T) {
 
 func TestSessionStore_ExpiredSession(t *testing.T) {
 	dir := t.TempDir()
-	store, _ := NewSessionStore(dir, 1*time.Millisecond)
+	store, _ := NewFileStore(dir, 1*time.Millisecond)
 
 	sid := "session-exp"
 	store.Create(sid, "test")

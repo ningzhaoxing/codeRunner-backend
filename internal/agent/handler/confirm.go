@@ -129,7 +129,25 @@ func ConfirmHandler(svc *agent.AgentService) gin.HandlerFunc {
 			return
 		}
 
-		var assistantContent strings.Builder
+		// Persist the propose_execution call + result so the next turn's history
+		// reflects the actual tool exchange. Use the proposal_id as a stable
+		// tool_call_id since Eino does not surface the original LLM tool_call_id here.
+		assistantToolCall := &schema.Message{
+			Role: schema.Assistant,
+			ToolCalls: []schema.ToolCall{{
+				ID:   proposal.ProposalID,
+				Type: "function",
+				Function: schema.FunctionCall{
+					Name:      "propose_execution",
+					Arguments: fmt.Sprintf(`{"language":%q,"description":%q,"new_code":%q}`, proposal.Language, proposal.Description, proposal.Code),
+				},
+			}},
+		}
+		toolResult := schema.ToolMessage(resultStr, proposal.ProposalID, schema.WithToolName("propose_execution"))
+		_ = svc.SessionStore.Append(req.SessionID, assistantToolCall, toolResult)
+
+		var produced []*schema.Message
+		var streamingChunks []*schema.Message
 
 		for {
 			event, ok := iter.Next()
@@ -161,6 +179,7 @@ func ConfirmHandler(svc *agent.AgentService) gin.HandlerFunc {
 				mv := event.Output.MessageOutput
 				if mv.IsStreaming && mv.MessageStream != nil {
 					stream := mv.MessageStream
+					streamingChunks = streamingChunks[:0]
 					for {
 						chunk, recvErr := stream.Recv()
 						if errors.Is(recvErr, io.EOF) {
@@ -172,15 +191,16 @@ func ConfirmHandler(svc *agent.AgentService) gin.HandlerFunc {
 						if chunk == nil {
 							continue
 						}
-						if chunk.Role == schema.Assistant && chunk.Content != "" {
-							assistantContent.WriteString(chunk.Content)
-						}
+						streamingChunks = append(streamingChunks, chunk)
 						sseEvent(c, "stream_chunk", ssePayload{Content: chunk.Content})
 					}
-				} else if mv.Message != nil {
-					if mv.Message.Role == schema.Assistant {
-						assistantContent.WriteString(mv.Message.Content)
+					if len(streamingChunks) > 0 {
+						if full, err := schema.ConcatMessages(streamingChunks); err == nil && full != nil {
+							produced = append(produced, full)
+						}
 					}
+				} else if mv.Message != nil {
+					produced = append(produced, mv.Message)
 					eventType := "message"
 					if mv.Message.Role == schema.Tool {
 						eventType = "tool_result"
@@ -190,9 +210,8 @@ func ConfirmHandler(svc *agent.AgentService) gin.HandlerFunc {
 			}
 		}
 
-		// Persist assistant response
-		if assistantContent.Len() > 0 {
-			_ = svc.SessionStore.Append(req.SessionID, schema.AssistantMessage(assistantContent.String(), nil))
+		if len(produced) > 0 {
+			_ = svc.SessionStore.Append(req.SessionID, produced...)
 		}
 
 		metrics.AgentChatDuration.WithLabelValues(status).Observe(time.Since(start).Seconds())

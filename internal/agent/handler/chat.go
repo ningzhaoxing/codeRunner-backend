@@ -117,6 +117,10 @@ func ChatHandler(svc *agent.AgentService) gin.HandlerFunc {
 		var sessionID string
 		var isNew bool
 		var instruction string
+		articleID := ""
+		if hasArticle {
+			articleID = req.ArticleCtx.ArticleID
+		}
 
 		switch {
 		case !hasSession && hasArticle:
@@ -124,20 +128,36 @@ func ChatHandler(svc *agent.AgentService) gin.HandlerFunc {
 			sessionID = uuid.New().String()
 			isNew = true
 			instruction = buildInstruction(req.ArticleCtx)
-			if err := svc.SessionStore.Create(sessionID, instruction); err != nil {
+			if err := svc.SessionStore.CreateWithArticle(sessionID, instruction, articleID); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to create session"})
 				return
 			}
 			metrics.AgentSessionsActive.Inc()
 
 		case hasSession && hasArticle:
-			// reset mode — delete old session, create fresh one with same ID
 			sessionID = req.SessionID
-			svc.SessionStore.Delete(sessionID)
-			instruction = buildInstruction(req.ArticleCtx)
-			if err := svc.SessionStore.Create(sessionID, instruction); err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to reset session"})
-				return
+			meta, ok := svc.SessionStore.GetMeta(sessionID)
+			switch {
+			case !ok:
+				// session expired/missing — fall through to create with provided ID
+				instruction = buildInstruction(req.ArticleCtx)
+				if err := svc.SessionStore.CreateWithArticle(sessionID, instruction, articleID); err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to create session"})
+					return
+				}
+				isNew = true
+				metrics.AgentSessionsActive.Inc()
+			case meta.ArticleID == articleID:
+				// same article — continue conversation, keep history
+				instruction = meta.Instruction
+			default:
+				// switched article — reset
+				svc.SessionStore.Delete(sessionID)
+				instruction = buildInstruction(req.ArticleCtx)
+				if err := svc.SessionStore.CreateWithArticle(sessionID, instruction, articleID); err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to reset session"})
+					return
+				}
 			}
 
 		default:
@@ -204,7 +224,10 @@ func ChatHandler(svc *agent.AgentService) gin.HandlerFunc {
 
 		iter := svc.Runner.Run(ctx, allMessages, adk.WithCheckPointID(sessionID))
 
-		var assistantContent strings.Builder
+		// Accumulate all messages produced this turn so we can persist a faithful
+		// transcript (assistant text, assistant tool_calls, tool results).
+		var produced []*schema.Message
+		var streamingChunks []*schema.Message
 
 		for {
 			event, ok := iter.Next()
@@ -236,6 +259,7 @@ func ChatHandler(svc *agent.AgentService) gin.HandlerFunc {
 				mv := event.Output.MessageOutput
 				if mv.IsStreaming && mv.MessageStream != nil {
 					stream := mv.MessageStream
+					streamingChunks = streamingChunks[:0]
 					for {
 						chunk, recvErr := stream.Recv()
 						if errors.Is(recvErr, io.EOF) {
@@ -247,19 +271,20 @@ func ChatHandler(svc *agent.AgentService) gin.HandlerFunc {
 						if chunk == nil {
 							continue
 						}
-						if chunk.Role == schema.Assistant && chunk.Content != "" {
-							assistantContent.WriteString(chunk.Content)
-						}
+						streamingChunks = append(streamingChunks, chunk)
 						p := ssePayload{Type: "stream_chunk", Content: chunk.Content}
 						if len(chunk.ToolCalls) > 0 {
 							p.ToolCalls = chunk.ToolCalls
 						}
 						sseEvent(c, "stream_chunk", p)
 					}
-				} else if mv.Message != nil {
-					if mv.Message.Role == schema.Assistant {
-						assistantContent.WriteString(mv.Message.Content)
+					if len(streamingChunks) > 0 {
+						if full, err := schema.ConcatMessages(streamingChunks); err == nil && full != nil {
+							produced = append(produced, full)
+						}
 					}
+				} else if mv.Message != nil {
+					produced = append(produced, mv.Message)
 					eventType := "message"
 					if mv.Message.Role == schema.Tool {
 						eventType = "tool_result"
@@ -275,9 +300,9 @@ func ChatHandler(svc *agent.AgentService) gin.HandlerFunc {
 
 		close(kaStop)
 
-		// Persist user + assistant messages
-		assistantMsg := schema.AssistantMessage(assistantContent.String(), nil)
-		_ = svc.SessionStore.Append(sessionID, userMsg, assistantMsg)
+		// Persist user + everything the agent produced this turn (including tool calls / results)
+		toAppend := append([]*schema.Message{userMsg}, produced...)
+		_ = svc.SessionStore.Append(sessionID, toAppend...)
 
 		// Record chat duration
 		metrics.AgentChatDuration.WithLabelValues(status).Observe(time.Since(start).Seconds())
