@@ -33,7 +33,7 @@ func (i *InnerServerDomainImpl) RunCode(request *proto.ExecuteRequest) (*proto.E
 	duration, response, err := i.Container.RunCode(request)
 	if err != nil {
 		zap.S().Error("domain.client.entity.Service() RunCode err=", err)
-		return nil, err
+		return &response, err
 	}
 
 	// 将响应时间发送给服务端

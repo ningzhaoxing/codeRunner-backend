@@ -21,6 +21,21 @@ type Container interface {
 	RunCode(request *proto.ExecuteRequest) (duration int64, response proto.ExecuteResponse, err error)
 }
 
+var langAliases = map[string]string{
+	"go": "golang", "golang": "golang",
+	"py": "python", "python": "python",
+	"js": "javascript", "javascript": "javascript",
+	"java": "java",
+	"c":    "c",
+}
+
+func normalizeLang(lang string) string {
+	if v, ok := langAliases[strings.ToLower(strings.TrimSpace(lang))]; ok {
+		return v
+	}
+	return lang
+}
+
 type runCode struct {
 	DockerContainer
 	//错误
@@ -165,6 +180,9 @@ func (r *runCode) RunCode(request *proto.ExecuteRequest) (duration int64, respon
 	response.Id = request.Id
 	response.Uid = request.Uid
 	response.CallBackUrl = request.CallBackUrl
+
+	// 归一化语言别名（如 "go" → "golang"），保证池/扩展名/命令查找一致
+	request.Language = normalizeLang(request.Language)
 
 	// 从池中获取容器 slot
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
