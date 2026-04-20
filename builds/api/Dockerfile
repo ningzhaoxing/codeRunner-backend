@@ -17,15 +17,14 @@ RUN go build -o code-runner ./cmd/api/main.go
 
 FROM alpine:latest
 
-RUN adduser -D -u 10000 runner
+RUN apk add --no-cache su-exec && adduser -D -u 10000 runner
 
 WORKDIR /app
 COPY --from=builder /app/code-runner .
 COPY configs/dev.yaml ./configs/
 COPY configs/product.yaml ./configs/
+COPY builds/api/entrypoint.sh /app/entrypoint.sh
 
-RUN chown -R runner:runner /app
+RUN chmod +x /app/entrypoint.sh && chown -R runner:runner /app
 
-USER runner
-
-CMD ["/app/code-runner"]
+ENTRYPOINT ["/app/entrypoint.sh"]
