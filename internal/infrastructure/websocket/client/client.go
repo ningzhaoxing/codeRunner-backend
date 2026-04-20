@@ -177,11 +177,12 @@ func (i *WebsocketClientImpl) connect() error {
 
 	conn, _, err := dialer.Dial(url, nil)
 	if err != nil {
-		zap.S().Error("内网服务器客户端发起链接失败 err=", err)
+		zap.S().Errorf("Worker failed to connect to server %s: %v", url, err)
 		return err
 	}
 
 	i.conn = conn
+	zap.S().Infof("Worker connected to server: %s", url)
 
 	// 启动心跳
 	go i.heartBeat()
@@ -199,18 +200,18 @@ func (i *WebsocketClientImpl) reconnect() error {
 	maxAttempts := 3
 
 	for {
-		zap.S().Info("尝试重新连接...")
+		zap.S().Infof("Worker reconnecting to server %s:%s/%s (remaining attempts: %d)", i.targetServer.host, i.targetServer.port, i.targetServer.path, maxAttempts)
 		err := i.connect()
 		if err == nil {
-			zap.S().Info("重连成功")
+			zap.S().Info("Worker reconnect succeeded")
 			return nil
 		}
 		maxAttempts--
 		if maxAttempts <= 0 {
-			zap.S().Info("重连失败已达%d次，停止重试", maxAttempts)
+			zap.S().Error("Worker reconnect failed after max attempts")
 			return errors.MaxRetryAttemptsReached
 		}
-		zap.S().Error("重连失败: %v, %d秒后重试\n", err, i.reconnectWait/time.Second)
+		zap.S().Errorf("Worker reconnect failed: %v, retrying in %ds", err, int(i.reconnectWait/time.Second))
 		time.Sleep(i.reconnectWait)
 	}
 }
@@ -225,15 +226,16 @@ func (i *WebsocketClientImpl) heartBeat() {
 	for {
 		select {
 		case <-ticker.C:
-			fmt.Println("发送心跳检测")
+			zap.S().Debug("Worker sending heartbeat ping")
 			if err := i.conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(3*time.Second)); err != nil {
-				zap.S().Error("发送心跳失败:", err)
+				zap.S().Errorf("Worker heartbeat failed: %v", err)
 				if err := i.reconnect(); err != nil {
-					zap.S().Error("重连失败，停止心跳检测")
+					zap.S().Error("Worker reconnect failed, stopping heartbeat")
 					return
 				}
 			}
 		case <-i.stopPingCh:
+			zap.S().Info("Worker heartbeat stopped")
 			return
 		}
 	}

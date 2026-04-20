@@ -23,36 +23,45 @@ func NewServiceImpl(innerServerDomainTmpl service.InnerServerDomain) *ServiceImp
 }
 
 func (w *ServiceImpl) Run(c config.Config) error {
+	zap.S().Infof("Worker starting, target server: %s:%s/%s (weight=%d)",
+		c.Client.Server.Host, c.Client.Server.Port, c.Client.Server.Path, c.Client.App.Weight)
+
 	if err := w.dail(c); err != nil {
-		zap.S().Error(fmt.Sprintln("application.client.Run() dail err=", err))
+		zap.S().Errorf("Worker failed to connect: %v", err)
 		return err
 	}
+
+	zap.S().Info("Worker ready, waiting for tasks...")
 
 	for {
 		readResult, err := w.InnerServerDomain.Read()
 		if err != nil {
-			zap.S().Error(fmt.Sprintln("websocket客户端已被关闭,请重启服务。application.client.Run() Read err=", err))
+			zap.S().Errorf("Worker websocket closed, service stopped: %v", err)
 			return err
 		}
-		fmt.Println("读取到消息:", readResult.Request)
+		zap.S().Infof("Worker received task: requestId=%s language=%s", readResult.Request.Id, readResult.Request.Language)
 
 		res, execErr := w.RunCode(readResult.Request)
 		if execErr != nil {
-			zap.S().Error(fmt.Sprintln("application.client.Run() Service err=", execErr))
+			zap.S().Errorf("Worker code execution failed: requestId=%s err=%v", readResult.Request.Id, execErr)
+		} else {
+			zap.S().Infof("Worker code execution succeeded: requestId=%s", readResult.Request.Id)
 		}
-		fmt.Println("处理结果为:", res)
 
 		switch readResult.MsgType {
 		case protocol.MsgTypeExecuteSync:
 			if err = w.sendResult(res, execErr); err != nil {
-				zap.S().Error(fmt.Sprintln("application.client.Run() sendResult err=", err))
+				zap.S().Errorf("Worker sendResult failed: requestId=%s err=%v", res.Id, err)
+			} else {
+				zap.S().Infof("Worker sendResult succeeded: requestId=%s", res.Id)
 			}
 		default:
 			if err = w.send(res, execErr); err != nil {
-				zap.S().Error(fmt.Sprintln("application.client.Run() send err=", err))
+				zap.S().Errorf("Worker callback failed: requestId=%s err=%v", res.Id, err)
+			} else {
+				zap.S().Infof("Worker callback succeeded: requestId=%s", res.Id)
 			}
 		}
-		fmt.Println("结果发送成功")
 	}
 }
 
@@ -62,7 +71,7 @@ func (w *ServiceImpl) dail(c config.Config) error {
 	// 发起websocket连接
 	err := w.InnerServerDomain.Dail(*targetServer)
 	if err != nil {
-		zap.S().Error(fmt.Sprintln("application.client.dail() Dail err=\n", err))
+		zap.S().Errorf("Worker dial failed: %v", err)
 		return err
 	}
 	return nil
@@ -71,7 +80,7 @@ func (w *ServiceImpl) dail(c config.Config) error {
 func (w *ServiceImpl) send(res *proto.ExecuteResponse, err error) error {
 	// 发送消息
 	if err := w.InnerServerDomain.Send(res, err); err != nil {
-		zap.S().Error(fmt.Sprintln("application.client.send() CallBackSend err=\n", err))
+		zap.S().Errorf("Worker callback send failed: %v", err)
 		return err
 	}
 	return nil
@@ -79,7 +88,7 @@ func (w *ServiceImpl) send(res *proto.ExecuteResponse, err error) error {
 
 func (w *ServiceImpl) sendResult(res *proto.ExecuteResponse, err error) error {
 	if err := w.InnerServerDomain.SendResult(res, err); err != nil {
-		zap.S().Error(fmt.Sprintln("application.client.sendResult() err=", err))
+		zap.S().Errorf("Worker sendResult failed: %v", err)
 		return err
 	}
 	return nil
