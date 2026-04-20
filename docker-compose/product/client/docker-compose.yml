@@ -2,13 +2,17 @@ version: '3.8'
 
 services:
   code-runner-api-client:
+    image: coderunner-client:latest
+    container_name: coderunner-client
     build:
       context: .
       dockerfile: builds/api/Dockerfile
+    restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /tmp:/app/tmp:shared
     environment:
+      - APP_MODE=client
       - APP_ENV=production
       - DOCKER_HOST=unix:///var/run/docker.sock
 
