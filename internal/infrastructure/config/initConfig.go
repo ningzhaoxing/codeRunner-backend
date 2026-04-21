@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/mitchellh/mapstructure"
 	"go.uber.org/zap"
@@ -14,10 +15,12 @@ import (
 var configPath = "./configs/product.yaml"
 
 type Config struct {
-	Server ServerConfig      `yaml:"server"`
-	Client ClientConfig      `yaml:"client"`
-	Logger LoggerConfig      `yaml:"log"`
-	Agent  agent.AgentConfig `yaml:"agent"`
+	Server   ServerConfig      `yaml:"server"`
+	Client   ClientConfig      `yaml:"client"`
+	Logger   LoggerConfig      `yaml:"log"`
+	Agent    agent.AgentConfig `yaml:"agent"`
+	Mail     MailConfig        `yaml:"mail"`
+	Feedback FeedbackConfig    `yaml:"feedback"`
 }
 
 type ServerConfig struct {
@@ -78,6 +81,22 @@ type LoggerConfig struct {
 	Format        string `yaml:"format"`
 	Path          string `yaml:"path"`
 	EnableConsole bool   `yaml:"enable_console"`
+}
+
+type MailConfig struct {
+	Enabled     bool          `yaml:"enabled"`
+	Host        string        `yaml:"host"`
+	Port        int           `yaml:"port"`
+	Username    string        `yaml:"username"`
+	Password    string        `yaml:"password"`
+	From        string        `yaml:"from"`
+	To          string        `yaml:"to"`
+	SendTimeout time.Duration `yaml:"send_timeout"`
+}
+
+type FeedbackConfig struct {
+	RateLimitPerMin int `yaml:"rate_limit_per_min"`
+	RateLimitPerDay int `yaml:"rate_limit_per_day"`
 }
 
 func LoadConfig(config *Config) error {

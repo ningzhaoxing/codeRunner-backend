@@ -4,8 +4,9 @@ import (
 	"codeRunner-siwu/internal/agent"
 	agenthandler "codeRunner-siwu/internal/agent/handler"
 	serverService "codeRunner-siwu/internal/application/service/server"
-	serverHandler "codeRunner-siwu/internal/interfaces/controller/server"
 	"codeRunner-siwu/internal/interfaces/controller"
+	ctrlFeedback "codeRunner-siwu/internal/interfaces/controller/feedback"
+	serverHandler "codeRunner-siwu/internal/interfaces/controller/server"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -16,6 +17,7 @@ func ApiRouter(r *gin.Engine, svc serverService.ServerService) {
 	r.GET("/ws", controller.APIs.CodeRunnerSrv.HandleServer())
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	r.POST("/execute", serverHandler.ExecuteHandler(svc, 30*time.Second))
+	r.POST("/api/feedback", ctrlFeedback.HandleFeedback(controller.APIs.FeedbackSvc))
 }
 
 func AgentRouter(r *gin.Engine, svc *agent.AgentService) {

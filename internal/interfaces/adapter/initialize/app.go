@@ -32,7 +32,7 @@ func RunServer() {
 	}
 
 	// 服务注册
-	serverSvc := serverServiceRegister()
+	serverSvc := serverServiceRegister(c)
 
 	go func() {
 		url := fmt.Sprintf("%s:%s", c.Server.App.Host, c.Server.App.Port)

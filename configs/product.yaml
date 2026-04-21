@@ -53,3 +53,17 @@ agent:
   qwen:
     api_key: ${QWEN_API_KEY}
     model: qwen-plus
+
+mail:
+  enabled: true
+  host: smtp.qq.com
+  port: 465
+  username: your_qq@qq.com
+  password: ${MAIL_PASSWORD}
+  from: your_qq@qq.com
+  to: your_qq@qq.com
+  send_timeout: 3s
+
+feedback:
+  rate_limit_per_min: 3
+  rate_limit_per_day: 20
