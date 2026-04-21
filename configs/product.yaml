@@ -58,10 +58,10 @@ mail:
   enabled: true
   host: smtp.qq.com
   port: 465
-  username: your_qq@qq.com
+  username: 1282270052@qq.com
   password: ${MAIL_PASSWORD}
-  from: your_qq@qq.com
-  to: your_qq@qq.com
+  from: 1282270052@qq.com
+  to: 1282270052@qq.com
   send_timeout: 3s
 
 feedback:
