@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.25, Gin, `gopkg.in/gomail.v2` (new dep), `sync.Map` in-process rate limiter, Zap logging, Viper config (YAML + env expansion).
 
-**Spec reference:** `docs/superpowers/specs/2026-04-20-feedback-form-design.md`
+**Spec reference:** `docs/context/designs/2026-04-20-feedback-form-design.md`
 
 ---
 

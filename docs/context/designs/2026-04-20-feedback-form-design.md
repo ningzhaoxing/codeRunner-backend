@@ -100,7 +100,7 @@ internal/
     └── mailer.go           // Mailer interface（供 application 依赖）
 ```
 
-限流依赖已有 Redis 客户端，放在 `infrastructure/ratelimit`（如已存在复用之，否则新增）。
+限流依赖进程内 `ratelimit` package（放在 `infrastructure/ratelimit`）。
 
 ### 5.2 HTTP 接口
 
@@ -134,13 +134,16 @@ internal/
 
 ### 5.4 限流
 
-Redis keys：
-- `feedback:rl:min:{ip}` — TTL 60s，阈值 1 次
-- `feedback:rl:day:{ip}` — TTL 86400s，阈值 10 次
+进程内限流（单机部署够用，避免新增 Redis 依赖）：
 
-使用 `INCR` + `EXPIRE`（首次设置）。任一超限即返回 429。
+- 使用 `sync.Map` 存 `ip -> *ipBucket{minuteCount, minuteResetAt, dayCount, dayResetAt}`；
+- 每次 `Allow(ip)` 自动重置过期窗口；
+- 后台 janitor goroutine 每 10 分钟清理超过 1 天未活跃的 IP；
+- 阈值：3 次/分钟、20 次/天，任一超限即返回 429。
 
-IP 获取优先级：`X-Forwarded-For` 首段（去空格）→ `X-Real-IP` → `RemoteAddr`。
+**已知权衡**：限流状态仅存于进程内存，服务重启后清零；单机单实例部署下可接受，若未来扩多实例需替换为 Redis。
+
+**IP 获取**：当前部署拓扑为 Nginx → 后端单层反代，信任 Nginx 注入的 `X-Real-IP`；若缺失则回退到 `X-Forwarded-For` 最后一段（最靠近后端的、不可被客户端伪造的那段）→ `RemoteAddr`。不直接取 `X-Forwarded-For` 首段，避免客户端伪造。
 
 ### 5.5 邮件
 
@@ -161,12 +164,20 @@ IP 获取优先级：`X-Forwarded-For` 首段（去空格）→ `X-Real-IP` → 
 
 SMTPMailer 构造：
 ```go
+type Mailer interface {
+    // Send 发送一封 HTML 邮件；replyTo 为空则不设置 Reply-To 头。
+    Send(ctx context.Context, subject, htmlBody, replyTo string) error
+}
+
 type SMTPMailer struct {
-    dialer *gomail.Dialer
-    from   string
-    to     string
+    dialer  *gomail.Dialer
+    from    string
+    to      string
+    timeout time.Duration // 对应 mail.send_timeout，默认 3s
 }
 ```
+
+**发送策略**：application 层以 `mail.send_timeout` 包一层 `context.WithTimeout` 调用 `Mailer.Send`。超时返回 `ErrMailSend`，对用户侧展示「发送失败，请稍后重试」。gomail 本身不支持 context，SMTPMailer 内部通过 `dialer.Dial` + 独立 goroutine 发送、select timeout 实现超时语义；超时后让发送 goroutine 自然结束（不 leak 连接，gomail 有自己的 deadline）。
 
 ### 5.6 配置
 
@@ -181,10 +192,11 @@ mail:
   password: ${MAIL_PASSWORD}
   from: your_qq@qq.com
   to: your_qq@qq.com
+  send_timeout: 3s
 
 feedback:
-  rate_limit_per_min: 1
-  rate_limit_per_day: 10
+  rate_limit_per_min: 3
+  rate_limit_per_day: 20
   content_min: 10
   content_max: 2000
   contact_max: 100
@@ -212,11 +224,10 @@ feedback:
 
 **单元测试**：
 - `domain/feedback`：校验各边界（长度、type 白名单、trim）；
-- `application/feedback`：mock `Mailer` + `RateLimiter`，覆盖成功 / 限流 / 邮件失败；
-- `infrastructure/mail`：对 `gomail.Dialer` 做接口抽象便于 mock，或用本地 mock SMTP 服务器（如 `smtp-mock`）。
+- `application/feedback`：mock `Mailer` + `RateLimiter`，覆盖成功 / 限流 / 邮件失败 / 邮件超时；
+- `infrastructure/mail`：通过 `Mailer` 接口在 application 层 mock；如需端到端验证 SMTP 行为，使用 Go 原生 mock SMTP 服务器 `github.com/mhale/smtpd`，不引入 Node 依赖。
 
-**集成测试**：
-- controller 层用 `httptest`，串通 service + 假 mailer + miniredis。
+- 集成测试：controller 层用 `httptest`，串通 service + 假 mailer + 真实 in-memory ratelimiter。
 
 **手工冒烟**：
 - 本地起后端 + 前端；

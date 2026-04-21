@@ -8,7 +8,7 @@
 
 **Tech Stack:** Markdown, git
 
-**Spec:** `docs/superpowers/specs/2026-04-03-sdd-restructuring-design.md`
+**Spec:** `docs/context/decisions/2026-04-03-sdd-restructuring.md`
 
 **Deferred:** Workflow validation (spec section 七, step 7 — "用结果缓存功能试跑一遍完整 SDD 流程") is not included in this plan. It should be done as a separate follow-up after all structural changes are in place. Track in `docs/references/issues.md` if desired.
 

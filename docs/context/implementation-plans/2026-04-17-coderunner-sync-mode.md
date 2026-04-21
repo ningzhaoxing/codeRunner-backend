@@ -10,7 +10,7 @@
 
 **Tech Stack:** Go 1.23, gorilla/websocket, sync.Map, protocol/message.go
 
-**Spec 参考:** `docs/superpowers/specs/2026-03-28-agent-design.md` §3.3 "CodeRunner 同步执行模式"
+**Spec 参考:** `docs/context/designs/2026-03-28-agent-design.md` §3.3 "CodeRunner 同步执行模式"
 
 ---
 

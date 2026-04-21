@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.23, Gin, cloudwego/eino, Eino ADK Runner + ChatModelAgent, JSONL file storage, Prometheus, Zap
 
-**前置依赖:** `docs/superpowers/plans/2026-04-17-coderunner-sync-mode.md` 必须先完成。
+**前置依赖:** `docs/context/implementation-plans/2026-04-17-coderunner-sync-mode.md` 必须先完成。
 
 ---
 
