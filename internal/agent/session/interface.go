@@ -13,7 +13,7 @@ type Store interface {
 
 	// CreateWithArticle creates a new session and records the source article ID
 	// so the chat handler can detect "same article, continue conversation" vs "switched article, reset".
-	CreateWithArticle(sessionID, instruction, articleID string) error
+	CreateWithArticle(sessionID, instruction, articleID, ownerID string) error
 
 	// Exists checks if a session exists.
 	Exists(sessionID string) bool

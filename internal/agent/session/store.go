@@ -16,6 +16,7 @@ import (
 
 type SessionMeta struct {
 	ID           string    `json:"id"`
+	OwnerID      string    `json:"owner_id,omitempty"`
 	Instruction  string    `json:"instruction"`
 	ArticleID    string    `json:"article_id,omitempty"`
 	CreatedAt    time.Time `json:"created_at"`
@@ -73,16 +74,17 @@ func (s *FileStore) metaPath(sessionID string) string {
 }
 
 func (s *FileStore) Create(sessionID, instruction string) error {
-	return s.CreateWithArticle(sessionID, instruction, "")
+	return s.CreateWithArticle(sessionID, instruction, "", "")
 }
 
-func (s *FileStore) CreateWithArticle(sessionID, instruction, articleID string) error {
+func (s *FileStore) CreateWithArticle(sessionID, instruction, articleID, ownerID string) error {
 	mu := s.getLock(sessionID)
 	mu.Lock()
 	defer mu.Unlock()
 
 	meta := &SessionMeta{
 		ID:           sessionID,
+		OwnerID:      ownerID,
 		Instruction:  instruction,
 		ArticleID:    articleID,
 		CreatedAt:    time.Now(),

@@ -20,6 +20,7 @@ import (
 
 type confirmRequest struct {
 	SessionID  string `json:"session_id"`
+	VisitorID  string `json:"visitor_id"`
 	ProposalID string `json:"proposal_id"`
 }
 
@@ -39,8 +40,13 @@ func ConfirmHandler(svc *agent.AgentService) gin.HandlerFunc {
 		}
 
 		// Validate session exists
-		if _, ok := svc.SessionStore.GetMeta(req.SessionID); !ok {
+		meta, ok := svc.SessionStore.GetMeta(req.SessionID)
+		if !ok {
 			c.JSON(http.StatusNotFound, gin.H{"message": "session not found or expired"})
+			return
+		}
+		if meta.OwnerID != "" && meta.OwnerID != req.VisitorID {
+			c.JSON(http.StatusForbidden, gin.H{"message": "session does not belong to this visitor"})
 			return
 		}
 

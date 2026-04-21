@@ -12,6 +12,7 @@ import (
 
 type cancelRequest struct {
 	SessionID string `json:"session_id"`
+	VisitorID string `json:"visitor_id"`
 }
 
 func CancelHandler(svc *agent.AgentService) gin.HandlerFunc {
@@ -29,6 +30,14 @@ func CancelHandler(svc *agent.AgentService) gin.HandlerFunc {
 		cancelFn, ok := svc.Cancels.LoadAndDelete(req.SessionID)
 		if !ok {
 			c.JSON(http.StatusNotFound, gin.H{"message": "no active run for this session"})
+			return
+		}
+
+		// Validate ownership before cancelling
+		if meta, ok := svc.SessionStore.GetMeta(req.SessionID); ok && meta.OwnerID != "" && meta.OwnerID != req.VisitorID {
+			// Re-store the cancel func since we're not proceeding
+			svc.Cancels.Store(req.SessionID, cancelFn)
+			c.JSON(http.StatusForbidden, gin.H{"message": "session does not belong to this visitor"})
 			return
 		}
 

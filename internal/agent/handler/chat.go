@@ -35,6 +35,7 @@ type articleCtx struct {
 
 type chatRequest struct {
 	SessionID   string      `json:"session_id"`
+	VisitorID   string      `json:"visitor_id"`
 	UserMessage string      `json:"user_message"`
 	ArticleCtx  *articleCtx `json:"article_ctx"`
 }
@@ -105,6 +106,11 @@ func ChatHandler(svc *agent.AgentService) gin.HandlerFunc {
 			return
 		}
 
+		if strings.TrimSpace(req.VisitorID) == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "visitor_id is required"})
+			return
+		}
+
 		// Determine mode
 		hasSession := req.SessionID != ""
 		hasArticle := req.ArticleCtx != nil
@@ -128,7 +134,7 @@ func ChatHandler(svc *agent.AgentService) gin.HandlerFunc {
 			sessionID = uuid.New().String()
 			isNew = true
 			instruction = buildInstruction(req.ArticleCtx)
-			if err := svc.SessionStore.CreateWithArticle(sessionID, instruction, articleID); err != nil {
+			if err := svc.SessionStore.CreateWithArticle(sessionID, instruction, articleID, req.VisitorID); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to create session"})
 				return
 			}
@@ -141,12 +147,15 @@ func ChatHandler(svc *agent.AgentService) gin.HandlerFunc {
 			case !ok:
 				// session expired/missing — fall through to create with provided ID
 				instruction = buildInstruction(req.ArticleCtx)
-				if err := svc.SessionStore.CreateWithArticle(sessionID, instruction, articleID); err != nil {
+				if err := svc.SessionStore.CreateWithArticle(sessionID, instruction, articleID, req.VisitorID); err != nil {
 					c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to create session"})
 					return
 				}
 				isNew = true
 				metrics.AgentSessionsActive.Inc()
+			case meta.OwnerID != "" && meta.OwnerID != req.VisitorID:
+				c.JSON(http.StatusForbidden, gin.H{"message": "session does not belong to this visitor"})
+				return
 			case meta.ArticleID == articleID:
 				// same article — continue conversation, keep history
 				instruction = meta.Instruction
@@ -154,7 +163,7 @@ func ChatHandler(svc *agent.AgentService) gin.HandlerFunc {
 				// switched article — reset
 				svc.SessionStore.Delete(sessionID)
 				instruction = buildInstruction(req.ArticleCtx)
-				if err := svc.SessionStore.CreateWithArticle(sessionID, instruction, articleID); err != nil {
+				if err := svc.SessionStore.CreateWithArticle(sessionID, instruction, articleID, req.VisitorID); err != nil {
 					c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to reset session"})
 					return
 				}
@@ -166,6 +175,10 @@ func ChatHandler(svc *agent.AgentService) gin.HandlerFunc {
 			meta, ok := svc.SessionStore.GetMeta(sessionID)
 			if !ok {
 				c.JSON(http.StatusNotFound, gin.H{"message": "session not found or expired"})
+				return
+			}
+			if meta.OwnerID != "" && meta.OwnerID != req.VisitorID {
+				c.JSON(http.StatusForbidden, gin.H{"message": "session does not belong to this visitor"})
 				return
 			}
 			instruction = meta.Instruction
