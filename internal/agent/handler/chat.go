@@ -28,9 +28,10 @@ type codeBlock struct {
 }
 
 type articleCtx struct {
-	ArticleID      string      `json:"article_id"`
-	ArticleContent string      `json:"article_content"`
-	CodeBlocks     []codeBlock `json:"code_blocks"`
+	ArticleID         string      `json:"article_id"`
+	ArticleContent    string      `json:"article_content"`
+	CodeBlocks        []codeBlock `json:"code_blocks"`
+	FocusedBlockIndex *int        `json:"focused_block_index,omitempty"`
 }
 
 type chatRequest struct {
@@ -78,12 +79,19 @@ func buildInstruction(ctx *articleCtx) string {
 	if len(ctx.CodeBlocks) > 0 {
 		sb.WriteString("## Code Blocks in Article\n")
 		for i, cb := range ctx.CodeBlocks {
-			sb.WriteString(fmt.Sprintf("### Block %d (%s)\n```%s\n%s\n```\n\n", i+1, cb.Language, cb.Language, cb.Code))
+			marker := ""
+			if ctx.FocusedBlockIndex != nil && *ctx.FocusedBlockIndex == i {
+				marker = " ← 用户当前正在看这个代码块"
+			}
+			sb.WriteString(fmt.Sprintf("### Block %d (%s)%s\n```%s\n%s\n```\n\n", i+1, cb.Language, marker, cb.Language, cb.Code))
 		}
 	}
 	sb.WriteString("## Instructions\n")
 	sb.WriteString("- Answer questions about the article and code blocks above.\n")
 	sb.WriteString("- You can run code using the available code execution tools.\n")
+	if ctx.FocusedBlockIndex != nil {
+		sb.WriteString(fmt.Sprintf("- 用户当前聚焦的是 Block %d。当用户说「这段代码」「这个函数」等模糊指代时，默认指 Block %d，不要猜成其他 Block。\n", *ctx.FocusedBlockIndex+1, *ctx.FocusedBlockIndex+1))
+	}
 	sb.WriteString("- Be concise and helpful.\n")
 	return sb.String()
 }
