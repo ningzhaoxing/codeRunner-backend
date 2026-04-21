@@ -221,15 +221,37 @@ load = sqrt(ewma_latency + 1) * (inflight + 1) / weight
 
 详见 [P2C 负载均衡说明](internal/infrastructure/balanceStrategy/p2cBalance/README.md)。
 
-## 文档
+## 研发工作流（Harness）
 
-项目采用 Spec-Driven Development 工作流，详见 [CLAUDE.md](CLAUDE.md)。
+项目采用 **Spec-Driven Development (SDD) Harness** —— 由一组 Agent 与规范文档组成的端到端研发流水线，从需求到验收全流程可追溯。详见 [CLAUDE.md](CLAUDE.md)。
 
-| 文档 | 路径 |
-| --- | --- |
-| 产品需求 | `docs/context/requirements/` |
-| 技术方案 | `docs/context/designs/` |
-| 测试计划 | `docs/context/test-plans/` |
+```text
+PRD Agent ──▶ Design Agent ──▶ TestPlan Agent ──▶ AI Coding ──▶ Code Review ──▶ 验收
+   │              │                │                                              │
+   ▼              ▼                ▼                                              ▼
+ 需求文档        技术方案          测试计划                              TestPlan Must Have
+                                                                          + Redline 检查
+```
+
+**Agent 定义：**
+
+| Agent | 职责 | 定义文件 |
+| --- | --- | --- |
+| PRD Agent | 产出产品需求文档 | [`docs/agents/prd-agent.md`](docs/agents/prd-agent.md) |
+| Design Agent | 产出技术方案文档 | [`docs/agents/design-agent.md`](docs/agents/design-agent.md) |
+| TestPlan Agent | 产出测试计划文档 | [`docs/agents/testplan-agent.md`](docs/agents/testplan-agent.md) |
+
+**产物目录：**
+
+| 类别 | 路径 | 说明 |
+| --- | --- | --- |
+| 产品需求 | `docs/context/requirements/` | 由 PRD Agent 生成，人工评审 |
+| 技术方案 | `docs/context/designs/` | 由 Design Agent 生成，人工评审 |
+| 测试计划 | `docs/context/test-plans/` | 由 TestPlan Agent 生成，人工评审 |
+| 架构决策 | `docs/context/decisions/` | ADR（按需补充） |
+| Issue 追踪 | `docs/references/issues.md` | 已知问题与改进项 |
+
+**新特性流程：** PRD → Design → TestPlan（三份文档均人工评审通过）→ AI Coding（以三份文档为上下文）→ Code Review → 验收（核对 TestPlan Must Have、确认无 Redline 违规）。
 
 ## License
 
