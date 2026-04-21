@@ -6,3 +6,10 @@ import "context"
 type Mailer interface {
 	Send(ctx context.Context, subject, htmlBody, replyTo string) error
 }
+
+// NoopMailer 是一个不发送任何邮件的空实现，用于开发环境。
+type NoopMailer struct{}
+
+func (n *NoopMailer) Send(_ context.Context, _, _, _ string) error {
+	return nil
+}

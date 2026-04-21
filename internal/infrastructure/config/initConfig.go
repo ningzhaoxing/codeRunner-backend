@@ -116,6 +116,10 @@ func LoadConfig(config *Config) error {
 
 	if err := viper.Unmarshal(config, func(dc *mapstructure.DecoderConfig) {
 		dc.TagName = "yaml"
+		dc.DecodeHook = mapstructure.ComposeDecodeHookFunc(
+			mapstructure.StringToTimeDurationHookFunc(),
+			mapstructure.StringToSliceHookFunc(","),
+		)
 	}); err != nil {
 		zap.S().Error("infrastructure-config LoadConfig()的 viper.Unmarshal err  %v", err)
 		return err

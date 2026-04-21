@@ -50,15 +50,20 @@ func feedbackServiceRegister(cfg *config.Config) ctrlFeedback.FeedbackService {
 		PerMinute: cfg.Feedback.RateLimitPerMin,
 		PerDay:    cfg.Feedback.RateLimitPerDay,
 	})
-	mailer := mail.NewSMTPMailer(mail.SMTPConfig{
-		Host:        cfg.Mail.Host,
-		Port:        cfg.Mail.Port,
-		Username:    cfg.Mail.Username,
-		Password:    cfg.Mail.Password,
-		From:        cfg.Mail.From,
-		To:          cfg.Mail.To,
-		SendTimeout: cfg.Mail.SendTimeout,
-	})
+	var mailer mail.Mailer
+	if cfg.Mail.Enabled {
+		mailer = mail.NewSMTPMailer(mail.SMTPConfig{
+			Host:        cfg.Mail.Host,
+			Port:        cfg.Mail.Port,
+			Username:    cfg.Mail.Username,
+			Password:    cfg.Mail.Password,
+			From:        cfg.Mail.From,
+			To:          cfg.Mail.To,
+			SendTimeout: cfg.Mail.SendTimeout,
+		})
+	} else {
+		mailer = &mail.NoopMailer{}
+	}
 	svc := appfeedback.NewService(mailer, rl, appfeedback.Config{
 		SendTimeout: cfg.Mail.SendTimeout,
 	})
