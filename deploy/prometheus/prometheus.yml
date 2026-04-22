@@ -1,0 +1,26 @@
+# Prometheus scrape config for codeRunner-server
+#
+# Scrapes the Go /metrics endpoint exposed at :7979/metrics.
+# The server container is reachable by its compose service name
+# "code-runner-server" on the default bridge network.
+
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+  external_labels:
+    env: product
+
+scrape_configs:
+  - job_name: code-runner-server
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - code-runner-server:7979
+        labels:
+          service: code-runner-server
+
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - localhost:9090

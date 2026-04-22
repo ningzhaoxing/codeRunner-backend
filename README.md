@@ -219,6 +219,24 @@ load = sqrt(ewma_latency + 1) * (inflight + 1) / weight
 
 详见 [P2C 负载均衡说明](internal/infrastructure/balanceStrategy/p2cBalance/README.md)。
 
+## 可观测性
+
+Server 在 `GET /metrics` 暴露 Prometheus 指标（`code_execution_*`、`container_pool_*`、`ws_clients_connected`、`agent_*`）。生产环境 compose 已内置 Prometheus + Grafana：
+
+```bash
+# 在 .env 中设置 Grafana 管理员密码
+echo 'GRAFANA_ADMIN_PASSWORD=your-strong-password' >> .env
+
+# 启动全栈（含 redis / server / prometheus / grafana）
+docker compose -f docker-compose/product/server/docker-compose.yml up -d
+```
+
+端口：
+- Prometheus UI — `:9090`
+- Grafana UI — `:3000`（默认 dashboard `CodeRunner Overview` 已自动加载）
+
+抓取配置 `deploy/prometheus/prometheus.yml`，数据保留 15 天。Dashboard / datasource provisioning 在 `deploy/grafana/`，改动文件后 30 秒内 Grafana 会自动重载。
+
 ## Agent 架构
 
 Code Learning Agent 是嵌入在 Server 进程内的 AI 模块，定位**不是**通用聊天机器人，而是面向博客读者的「带执行能力的代码学习助手」。
