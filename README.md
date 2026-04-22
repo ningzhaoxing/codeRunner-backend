@@ -233,7 +233,7 @@ docker compose -f docker-compose/product/server/docker-compose.yml up -d
 
 端口：
 - Prometheus UI — `:9090`
-- Grafana UI — `:3000`（默认 dashboard `CodeRunner Overview` 已自动加载）
+- Grafana UI — `:3001`（宿主机 3001 → 容器 3000；默认 dashboard `CodeRunner Overview` 已自动加载）
 
 抓取配置 `deploy/prometheus/prometheus.yml`，数据保留 15 天。Dashboard / datasource provisioning 在 `deploy/grafana/`，改动文件后 30 秒内 Grafana 会自动重载。
 
