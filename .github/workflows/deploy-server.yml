@@ -7,8 +7,9 @@ on:
 
 env:
   IMAGE_NAME: coderunner-server
-  CONTAINER_NAME: coderunner-server
+  LEGACY_CONTAINER_NAME: coderunner-server
   DEPLOY_PATH: /root/workspace/codeRunner/codeRunner-backend
+  COMPOSE_DIR: docker-compose/product/server
 
 jobs:
   deploy:
@@ -49,23 +50,20 @@ jobs:
               exit 1
             fi
 
-            # Build image on server
+            # Build the server image locally (compose references it by name)
             /usr/bin/docker build --no-cache \
               -f builds/api/Dockerfile \
               -t ${{ env.IMAGE_NAME }}:latest .
 
-            # Restart container
-            /usr/bin/docker stop ${{ env.CONTAINER_NAME }} 2>/dev/null || true
-            /usr/bin/docker rm ${{ env.CONTAINER_NAME }} 2>/dev/null || true
-            /usr/bin/docker run -d \
-              --name ${{ env.CONTAINER_NAME }} \
-              --restart unless-stopped \
-              --env-file ${{ env.DEPLOY_PATH }}/.env \
-              -e APP_MODE=server \
-              -e APP_ENV=production \
-              -p 7979:7979 \
-              -p 50011:50011 \
-              ${{ env.IMAGE_NAME }}:latest
+            # Remove legacy standalone container from pre-compose deploys, if any.
+            # Compose-managed containers have different names and are untouched.
+            /usr/bin/docker rm -f ${{ env.LEGACY_CONTAINER_NAME }} 2>/dev/null || true
 
-            # Cleanup
+            # Bring up the full stack (redis + server + prometheus + grafana)
+            cd ${{ env.COMPOSE_DIR }}
+            /usr/bin/docker compose \
+              --env-file ${{ env.DEPLOY_PATH }}/.env \
+              up -d --remove-orphans
+
+            # Cleanup dangling images from the rebuild
             /usr/bin/docker image prune -f
