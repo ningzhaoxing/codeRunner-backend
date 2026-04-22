@@ -25,11 +25,23 @@ services:
       - "50011:50011"
     restart: unless-stopped
 
+  pushgateway:
+    image: prom/pushgateway:v1.9.0
+    restart: unless-stopped
+    command:
+      - --persistence.file=/data/pushgateway.data
+      - --persistence.interval=5m
+    volumes:
+      - pushgateway-data:/data
+    ports:
+      - "9091:9091"
+
   prometheus:
     image: prom/prometheus:v2.54.1
     restart: unless-stopped
     depends_on:
       - code-runner-server
+      - pushgateway
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
@@ -62,3 +74,4 @@ volumes:
   redis-data:
   prometheus-data:
   grafana-data:
+  pushgateway-data:

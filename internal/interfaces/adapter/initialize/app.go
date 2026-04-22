@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"codeRunner-siwu/internal/agent"
+	"codeRunner-siwu/internal/infrastructure/metrics"
 	"codeRunner-siwu/internal/interfaces/adapter/router"
 	etcd "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
@@ -87,12 +88,19 @@ func RunClient() {
 		panic("服务注册失败,原因:" + err.Error())
 	}
 
+	// 启动 metrics push（worker 在内网，云端 Prometheus 抓不到，改为 push 到 pushgateway）
+	hostname, _ := os.Hostname()
+	stopPush := metrics.StartPusher(c.Client.Metrics.PushgatewayURL, c.Client.Metrics.JobName, hostname, c.Client.Metrics.PushInterval)
+
 	// 优雅关停：监听系统信号
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigCh
 		zap.S().Info("收到关停信号，正在关闭容器池...")
+		if stopPush != nil {
+			stopPush()
+		}
 		pool.Close()
 		os.Exit(0)
 	}()

@@ -47,6 +47,11 @@ type ClientConfig struct {
 	App struct {
 		Weight int64 `yaml:"weight"`
 	} `yaml:"app"`
+	Metrics struct {
+		PushgatewayURL string        `yaml:"pushgateway_url"`
+		JobName        string        `yaml:"job_name"`
+		PushInterval   time.Duration `yaml:"push_interval"`
+	} `yaml:"metrics"`
 	ContainerPool ContainerPoolConfig `yaml:"container_pool"`
 }
 

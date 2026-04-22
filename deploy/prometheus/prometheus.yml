@@ -20,6 +20,15 @@ scrape_configs:
         labels:
           service: code-runner-server
 
+  # worker 在内网，主动 push 到 pushgateway；honor_labels 让 worker 自带的 instance/job 不被覆盖
+  - job_name: code-runner-worker
+    honor_labels: true
+    static_configs:
+      - targets:
+          - pushgateway:9091
+        labels:
+          service: code-runner-worker
+
   - job_name: prometheus
     static_configs:
       - targets:
