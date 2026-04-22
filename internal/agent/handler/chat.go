@@ -76,6 +76,23 @@ func sanitizeLanguageAttr(s string) string {
 	return cleaned
 }
 
+var reservedTagPatterns = []struct {
+	re   *regexp.Regexp
+	repl string
+}{
+	{regexp.MustCompile(`(?i)<\s*untrusted_article\b[^>]*>`), "<untrusted_article_>"},
+	{regexp.MustCompile(`(?i)<\s*untrusted_code_block\b[^>]*>`), "<untrusted_code_block_>"},
+	{regexp.MustCompile(`(?i)</\s*(untrusted_article)\s*>`), "</${1}_>"},
+	{regexp.MustCompile(`(?i)</\s*(untrusted_code_block)\s*>`), "</${1}_>"},
+}
+
+func neutralizeReservedTags(s string) string {
+	for _, p := range reservedTagPatterns {
+		s = p.re.ReplaceAllString(s, p.repl)
+	}
+	return s
+}
+
 func buildInstruction(ctx *articleCtx) string {
 	if ctx == nil {
 		return ""
