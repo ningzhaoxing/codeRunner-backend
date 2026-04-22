@@ -107,6 +107,9 @@ func (r *runCode) writeCode(code string) *runCode {
 
 // 同步磁盘
 func (r *runCode) sync() *runCode {
+	if r.err != nil {
+		return r
+	}
 	r.err = r.file.Sync()
 	return r
 }
