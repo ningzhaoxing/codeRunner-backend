@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -64,6 +65,16 @@ func sseKeepAlive(c *gin.Context) {
 }
 
 // --- instruction builder ---
+
+var languageAttrAllowed = regexp.MustCompile(`[^a-zA-Z0-9+#._-]`)
+
+func sanitizeLanguageAttr(s string) string {
+	cleaned := languageAttrAllowed.ReplaceAllString(s, "")
+	if len(cleaned) > 32 {
+		cleaned = cleaned[:32]
+	}
+	return cleaned
+}
 
 func buildInstruction(ctx *articleCtx) string {
 	if ctx == nil {

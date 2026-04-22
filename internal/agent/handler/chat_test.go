@@ -170,3 +170,29 @@ func TestMessageRoleForEventType(t *testing.T) {
 		t.Errorf("expected assistant role")
 	}
 }
+
+func TestSanitizeLanguageAttr(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"plain ascii", "go", "go"},
+		{"mixed case kept", "JavaScript", "JavaScript"},
+		{"allowed punctuation", "c++.net_1-0", "c++.net_1-0"},
+		{"strip quotes and injection", `go" injected="yes`, "goinjectedyes"},
+		{"strip whitespace", "Go 语言", "Go"},
+		{"strip newlines", "go\n<script>", "goscript"},
+		{"all illegal becomes empty", "中文🚀", ""},
+		{"truncate to 32", strings.Repeat("a", 50), strings.Repeat("a", 32)},
+		{"empty input stays empty", "", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := sanitizeLanguageAttr(tc.in)
+			if got != tc.want {
+				t.Fatalf("sanitizeLanguageAttr(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
