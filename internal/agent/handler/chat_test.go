@@ -303,7 +303,7 @@ func TestBuildInstruction_FakeInstructionsInArticle(t *testing.T) {
 	}
 }
 
-func TestBuildInstruction_CodeFenceEscape(t *testing.T) {
+func TestBuildInstruction_CodeWithMarkdownStaysInsideWrapper(t *testing.T) {
 	ctx := &articleCtx{
 		CodeBlocks: []codeBlock{{
 			Language: "go",
@@ -316,7 +316,7 @@ func TestBuildInstruction_CodeFenceEscape(t *testing.T) {
 	blockEnd := strings.Index(result, "</untrusted_code_block>")
 	sysIdx := strings.Index(result, "## System")
 	if sysIdx != -1 && (sysIdx < blockStart || sysIdx > blockEnd) {
-		t.Fatalf("attacker-injected ## System escaped the code block wrapper: %q", result)
+		t.Fatalf("markdown-like code content escaped the wrapper: %q", result)
 	}
 }
 
@@ -511,5 +511,18 @@ func TestBuildInstruction_FocusNegativeOmitted(t *testing.T) {
 	result := buildInstruction(ctx)
 	if strings.Contains(result, "## Focus") {
 		t.Fatalf("Focus section should be omitted for negative index, got %q", result)
+	}
+}
+
+func TestBuildInstruction_FocusOmittedWhenNoCodeBlocks(t *testing.T) {
+	zero := 0
+	ctx := &articleCtx{
+		ArticleContent:    "some article",
+		FocusedBlockIndex: &zero,
+		// CodeBlocks is nil
+	}
+	result := buildInstruction(ctx)
+	if strings.Contains(result, "## Focus") {
+		t.Fatalf("Focus section should be omitted when CodeBlocks is empty, got %q", result)
 	}
 }
