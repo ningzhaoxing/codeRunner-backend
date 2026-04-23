@@ -82,6 +82,15 @@ func (w *ServiceImpl) Run(cli WebsocketClient, weight int64) error {
 
 	w.ClientManagerDomain.AddClient(client, weight)
 
+	// 无论因何退出，都要把节点从 ClientManager / LoadBalancer 摘除，
+	// 否则 P2C 仍可能选中已死节点，连续命中 maxRetryPickClient 次后
+	// 就会向上报 "未找到可用的服务器"
+	defer func() {
+		if removeErr := w.ClientManagerDomain.RemoveClient(client.GetId()); removeErr != nil {
+			zap.S().Warnw("RemoveClient on Run exit failed", "clientID", client.GetId(), "err", removeErr)
+		}
+	}()
+
 	if err := client.HeartBeat(); err != nil {
 		zap.S().Errorw("HeartBeat failed", "clientID", client.GetId(), "err", err)
 		return err
