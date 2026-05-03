@@ -58,6 +58,18 @@ agent:
     api_key: ${QWEN_API_KEY}
     model: qwen-plus
 
+auth:
+  github:
+    client_id: ${GITHUB_CLIENT_ID}
+    client_secret: ${GITHUB_CLIENT_SECRET}
+    redirect_url: ${GITHUB_REDIRECT_URL}
+  jwt:
+    secret: ${AUTH_JWT_SECRET}
+    ttl_seconds: 604800
+  cookie:
+    name: "cr_auth"
+    secure: true
+
 mail:
   enabled: true
   host: smtp.qq.com
