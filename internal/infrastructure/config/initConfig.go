@@ -1,15 +1,16 @@
 package config
 
 import (
+	"codeRunner-siwu/internal/agent"
+	"codeRunner-siwu/internal/auth"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/mitchellh/mapstructure"
-	"go.uber.org/zap"
 	"github.com/spf13/viper"
-	"codeRunner-siwu/internal/agent"
+	"go.uber.org/zap"
 )
 
 var configPath = "./configs/product.yaml"
@@ -19,6 +20,7 @@ type Config struct {
 	Client   ClientConfig      `yaml:"client"`
 	Logger   LoggerConfig      `yaml:"log"`
 	Agent    agent.AgentConfig `yaml:"agent"`
+	Auth     auth.Config       `yaml:"auth"`
 	Mail     MailConfig        `yaml:"mail"`
 	Feedback FeedbackConfig    `yaml:"feedback"`
 }
@@ -129,6 +131,7 @@ func LoadConfig(config *Config) error {
 		zap.S().Error("infrastructure-config LoadConfig()的 viper.Unmarshal err  %v", err)
 		return err
 	}
+	config.Auth = config.Auth.WithDefaults()
 	fmt.Println(config)
 	return nil
 }
