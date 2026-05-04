@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"codeRunner-siwu/internal/agent"
+	"codeRunner-siwu/internal/auth"
 	"codeRunner-siwu/internal/infrastructure/metrics"
 	"codeRunner-siwu/internal/interfaces/adapter/router"
 	etcd "go.etcd.io/etcd/client/v3"
@@ -39,7 +40,9 @@ func RunServer() {
 		url := fmt.Sprintf("%s:%s", c.Server.App.Host, c.Server.App.Port)
 		fmt.Println(url)
 		r := routeEngine()
-		router.ApiRouter(r, serverSvc)
+		authSvc := auth.NewService(c.Auth, auth.NewGitHubClientFromConfig(c.Auth), time.Now)
+		authHandler := auth.NewHandler(authSvc)
+		router.ApiRouter(r, serverSvc, authHandler)
 		if c.Agent.Enabled {
 			agentSvc, err := agent.NewAgentService(ctx, c.Agent, ".")
 			if err != nil {

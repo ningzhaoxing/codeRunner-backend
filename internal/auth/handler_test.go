@@ -88,3 +88,24 @@ func TestHandler_LogoutClearsCookie(t *testing.T) {
 		t.Fatalf("Set-Cookie = %q", w.Header().Get("Set-Cookie"))
 	}
 }
+
+func TestRegisterRoutes_RegistersAuthPaths(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	RegisterRoutes(r, newTestAuthHandler())
+
+	paths := map[string]bool{}
+	for _, route := range r.Routes() {
+		paths[route.Method+" "+route.Path] = true
+	}
+	for _, want := range []string{
+		"GET /auth/github/login",
+		"GET /auth/github/callback",
+		"GET /auth/me",
+		"POST /auth/logout",
+	} {
+		if !paths[want] {
+			t.Fatalf("missing route %s; routes=%v", want, paths)
+		}
+	}
+}
