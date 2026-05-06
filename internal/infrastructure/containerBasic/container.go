@@ -184,9 +184,9 @@ func (c *dockerContainerClient) buildExec(ctx context.Context, cmd, id string, a
 
 	// 8. 根据退出码判断结果
 	if inspect.ExitCode != 0 {
-		zap.S().Error("执行失败，退出码: %d", inspect.ExitCode)
+		zap.S().Errorf("执行失败，退出码: %d", inspect.ExitCode)
 	} else {
-		zap.S().Error("执行成功")
+		zap.S().Info("执行成功")
 	}
 	// 打印完整输出
 	return outputBuf.String(), nil
@@ -198,8 +198,13 @@ func (c *dockerContainerClient) InContainerRunCode(containerName string, cmd str
 	defer cancel()
 	containerOne, err := c.cli.ContainerInspect(ctx, containerName)
 	if err != nil {
-		zap.S().Error("容器ID未找到 err=", err)
-		return 0, "", err
+		zap.S().Warnw("容器检查失败，尝试重新确认容器状态", "container", containerName, "err", err)
+		c.ensureContainerExistsByName(containerName)
+		containerOne, err = c.cli.ContainerInspect(ctx, containerName)
+		if err != nil {
+			zap.S().Error("容器ID未找到 err=", err)
+			return 0, "", err
+		}
 	}
 	start := time.Now()
 	result, err := c.buildExec(ctx, cmd, containerOne.ID, args)

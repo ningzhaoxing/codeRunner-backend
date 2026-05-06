@@ -9,7 +9,8 @@ env:
   IMAGE_NAME: coderunner-server
   LEGACY_CONTAINER_NAME: coderunner-server
   DEPLOY_PATH: /root/workspace/codeRunner/codeRunner-backend
-  COMPOSE_DIR: docker-compose/product/server
+  SERVER_COMPOSE_DIR: docker-compose/product/server
+  CLIENT_COMPOSE_DIR: docker-compose/product/client
 
 jobs:
   deploy:
@@ -60,10 +61,16 @@ jobs:
             /usr/bin/docker rm -f ${{ env.LEGACY_CONTAINER_NAME }} 2>/dev/null || true
 
             # Bring up the full stack (redis + server + prometheus + grafana)
-            cd ${{ env.COMPOSE_DIR }}
+            cd ${{ env.SERVER_COMPOSE_DIR }}
             /usr/bin/docker compose \
               --env-file ${{ env.DEPLOY_PATH }}/.env \
               up -d --remove-orphans
+
+            # Bring up worker + runner containers required by code execution.
+            cd ${{ env.DEPLOY_PATH }}/${{ env.CLIENT_COMPOSE_DIR }}
+            /usr/bin/docker compose \
+              --env-file ${{ env.DEPLOY_PATH }}/.env \
+              up -d --build --remove-orphans
 
             # Cleanup dangling images from the rebuild
             /usr/bin/docker image prune -f

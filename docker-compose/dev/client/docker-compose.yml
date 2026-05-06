@@ -5,6 +5,12 @@ services:
     build:
       context: .
       dockerfile: builds/api/Dockerfile
+    depends_on:
+      - code-runner-go-0
+      - code-runner-python-0
+      - code-runner-cpp-0
+      - code-runner-java-0
+      - code-runner-js-0
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /tmp:/app/tmp:shared

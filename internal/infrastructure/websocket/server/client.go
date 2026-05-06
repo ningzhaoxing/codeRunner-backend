@@ -18,6 +18,7 @@ const (
 
 type WebsocketClientImpl struct {
 	conn        *websocket.Conn
+	writeMu     sync.Mutex
 	isClosed    bool
 	ackHandler  func(requestID string) // 收到 ACK 时的回调
 	pendingSync sync.Map               // requestID → chan []byte
@@ -72,6 +73,8 @@ func (c *WebsocketClientImpl) Send(requestID string, payload []byte) error {
 	if err != nil {
 		return err
 	}
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
 	return c.conn.WriteMessage(websocket.TextMessage, data)
 }
 
@@ -95,7 +98,10 @@ func (c *WebsocketClientImpl) SendSync(requestID string, payload []byte, timeout
 	if err != nil {
 		return nil, err
 	}
-	if err := c.conn.WriteMessage(websocket.TextMessage, data); err != nil {
+	c.writeMu.Lock()
+	err = c.conn.WriteMessage(websocket.TextMessage, data)
+	c.writeMu.Unlock()
+	if err != nil {
 		return nil, err
 	}
 
@@ -123,7 +129,10 @@ func (c *WebsocketClientImpl) HeartBeat() error {
 
 	c.conn.SetPingHandler(func(appData string) error {
 		c.conn.SetReadDeadline(time.Now().Add(pongWait))
-		if err := c.conn.WriteMessage(websocket.PongMessage, []byte(appData)); err != nil {
+		c.writeMu.Lock()
+		err := c.conn.WriteControl(websocket.PongMessage, []byte(appData), time.Now().Add(10*time.Second))
+		c.writeMu.Unlock()
+		if err != nil {
 			c.Close()
 			return err
 		}
@@ -142,7 +151,10 @@ func (c *WebsocketClientImpl) HeartBeat() error {
 			if c.IsClosed() {
 				return
 			}
-			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+			c.writeMu.Lock()
+			err := c.conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(10*time.Second))
+			c.writeMu.Unlock()
+			if err != nil {
 				zap.S().Warn("heartbeat ping failed, closing connection: ", err)
 				c.Close()
 				return
