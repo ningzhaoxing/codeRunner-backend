@@ -21,10 +21,14 @@ func NewOpenAIProvider(ctx context.Context, cfg Config) (*openaiProvider, error)
 		modelName = "gpt-4o"
 	}
 
-	cm, err := oai.NewChatModel(ctx, &oai.ChatModelConfig{
+	modelCfg := &oai.ChatModelConfig{
 		APIKey: cfg.OpenAI.APIKey,
 		Model:  modelName,
-	})
+	}
+	if cfg.OpenAI.BaseURL != "" {
+		modelCfg.BaseURL = cfg.OpenAI.BaseURL
+	}
+	cm, err := oai.NewChatModel(ctx, modelCfg)
 	if err != nil {
 		return nil, fmt.Errorf("create openai model: %w", err)
 	}

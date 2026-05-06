@@ -50,13 +50,16 @@ agent:
     max_tokens_for_clear: 160000
   claude:
     api_key: ${CLAUDE_API_KEY}
-    model: claude-opus-4-6
+    model: ${CLAUDE_MODEL}
+    base_url: ${CLAUDE_BASE_URL}
   openai:
     api_key: ${OPENAI_API_KEY}
-    model: gpt-4o
+    model: ${OPENAI_MODEL}
+    base_url: ${OPENAI_BASE_URL}
   qwen:
     api_key: ${QWEN_API_KEY}
-    model: qwen-plus
+    model: ${QWEN_MODEL}
+    base_url: ${QWEN_BASE_URL}
 
 auth:
   github:

@@ -20,11 +20,15 @@ func NewQwenProvider(ctx context.Context, cfg Config) (*qwenProvider, error) {
 	if modelName == "" {
 		modelName = "qwen-plus"
 	}
+	baseURL := cfg.Qwen.BaseURL
+	if baseURL == "" {
+		baseURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+	}
 
 	cm, err := oai.NewChatModel(ctx, &oai.ChatModelConfig{
 		APIKey:  cfg.Qwen.APIKey,
 		Model:   modelName,
-		BaseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+		BaseURL: baseURL,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create qwen model: %w", err)

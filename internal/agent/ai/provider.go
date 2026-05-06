@@ -11,16 +11,19 @@ import (
 type Config struct {
 	Provider string
 	Claude   struct {
-		APIKey string
-		Model  string
+		APIKey  string
+		Model   string
+		BaseURL string
 	}
 	OpenAI struct {
-		APIKey string
-		Model  string
+		APIKey  string
+		Model   string
+		BaseURL string
 	}
 	Qwen struct {
-		APIKey string
-		Model  string
+		APIKey  string
+		Model   string
+		BaseURL string
 	}
 }
 

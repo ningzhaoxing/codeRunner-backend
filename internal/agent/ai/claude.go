@@ -20,11 +20,15 @@ func NewClaudeProvider(ctx context.Context, cfg Config) (*claudeProvider, error)
 	if modelName == "" {
 		modelName = "claude-opus-4-6"
 	}
+	baseURL := cfg.Claude.BaseURL
+	if baseURL == "" {
+		baseURL = "https://api.anthropic.com/v1"
+	}
 
 	cm, err := openai.NewChatModel(ctx, &openai.ChatModelConfig{
 		APIKey:  cfg.Claude.APIKey,
 		Model:   modelName,
-		BaseURL: "https://api.anthropic.com/v1",
+		BaseURL: baseURL,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create claude model: %w", err)
