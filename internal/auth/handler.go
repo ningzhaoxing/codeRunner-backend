@@ -24,6 +24,10 @@ func RegisterRoutes(r gin.IRoutes, h *Handler) {
 func (h *Handler) Login(c *gin.Context) {
 	url, err := h.service.LoginURL(c.Query("return_to"))
 	if err != nil {
+		if isConfigError(err) {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"message": "github auth is not configured"})
+			return
+		}
 		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid return_to"})
 		return
 	}
@@ -33,11 +37,15 @@ func (h *Handler) Login(c *gin.Context) {
 func (h *Handler) Callback(c *gin.Context) {
 	_, token, returnTo, err := h.service.Callback(c.Request.Context(), c.Query("code"), c.Query("state"))
 	if err != nil {
+		if isConfigError(err) {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"message": "github auth is not configured"})
+			return
+		}
 		c.JSON(http.StatusBadGateway, gin.H{"message": "github oauth callback failed"})
 		return
 	}
 	h.setCookie(c, token, h.service.CookieMaxAge())
-	c.Redirect(http.StatusFound, returnTo)
+	c.Redirect(http.StatusFound, h.service.RedirectURL(returnTo))
 }
 
 func (h *Handler) Me(c *gin.Context) {
@@ -70,4 +78,11 @@ func (h *Handler) setCookie(c *gin.Context, value string, maxAge int) {
 		h.service.CookieSecure(),
 		true,
 	)
+}
+
+func isConfigError(err error) bool {
+	return err == ErrMissingGitHubClientID ||
+		err == ErrMissingGitHubClientSecret ||
+		err == ErrMissingGitHubRedirectURL ||
+		err == ErrMissingJWTSecret
 }

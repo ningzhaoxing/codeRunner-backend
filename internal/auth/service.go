@@ -3,6 +3,8 @@ package auth
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"strings"
 	"time"
 )
 
@@ -24,13 +26,16 @@ func NewService(cfg Config, githubClient GitHubOAuthClient, now Clock) *Service 
 	return &Service{
 		cfg:          cfg,
 		githubClient: githubClient,
-		stateSigner:  NewStateSigner([]byte(cfg.JWT.Secret), 5*time.Minute),
+		stateSigner:  NewStateSigner([]byte(cfg.JWT.Secret), DefaultStateTTLSecond*time.Second),
 		jwtManager:   NewJWTManager([]byte(cfg.JWT.Secret), cfg.JWT.TTL),
 		now:          now,
 	}
 }
 
 func (s *Service) LoginURL(returnTo string) (string, error) {
+	if err := s.cfg.Validate(); err != nil {
+		return "", err
+	}
 	normalized, err := NormalizeReturnTo(returnTo)
 	if err != nil {
 		return "", err
@@ -43,6 +48,9 @@ func (s *Service) LoginURL(returnTo string) (string, error) {
 }
 
 func (s *Service) Callback(ctx context.Context, code, state string) (User, string, string, error) {
+	if err := s.cfg.Validate(); err != nil {
+		return User{}, "", "", err
+	}
 	if code == "" || state == "" {
 		return User{}, "", "", fmt.Errorf("code and state are required")
 	}
@@ -63,6 +71,18 @@ func (s *Service) Callback(ctx context.Context, code, state string) (User, strin
 		return User{}, "", "", fmt.Errorf("sign jwt: %w", err)
 	}
 	return user, token, returnTo, nil
+}
+
+func (s *Service) RedirectURL(returnTo string) string {
+	base := strings.TrimRight(s.cfg.FrontendBaseURL, "/")
+	if base == "" {
+		return returnTo
+	}
+	u, err := url.Parse(base)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return returnTo
+	}
+	return base + returnTo
 }
 
 func (s *Service) ParseUser(token string) (User, error) {

@@ -2,7 +2,7 @@ package config
 
 import (
 	"codeRunner-siwu/internal/agent"
-	"codeRunner-siwu/internal/auth"
+	browserauth "codeRunner-siwu/internal/auth"
 	"fmt"
 	"os"
 	"strings"
@@ -16,13 +16,13 @@ import (
 var configPath = "./configs/product.yaml"
 
 type Config struct {
-	Server   ServerConfig      `yaml:"server"`
-	Client   ClientConfig      `yaml:"client"`
-	Logger   LoggerConfig      `yaml:"log"`
-	Agent    agent.AgentConfig `yaml:"agent"`
-	Auth     auth.Config       `yaml:"auth"`
-	Mail     MailConfig        `yaml:"mail"`
-	Feedback FeedbackConfig    `yaml:"feedback"`
+	Server   ServerConfig       `yaml:"server"`
+	Client   ClientConfig       `yaml:"client"`
+	Logger   LoggerConfig       `yaml:"log"`
+	Agent    agent.AgentConfig  `yaml:"agent"`
+	Auth     browserauth.Config `yaml:"auth"`
+	Mail     MailConfig         `yaml:"mail"`
+	Feedback FeedbackConfig     `yaml:"feedback"`
 }
 
 type ServerConfig struct {

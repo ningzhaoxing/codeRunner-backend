@@ -58,6 +58,7 @@ agent:
     base_url: ${QWEN_BASE_URL}
 
 auth:
+  frontend_base_url: ${AUTH_FRONTEND_BASE_URL}
   github:
     client_id: ${GITHUB_CLIENT_ID}
     client_secret: ${GITHUB_CLIENT_SECRET}

@@ -9,9 +9,10 @@ const (
 )
 
 type Config struct {
-	GitHub GitHubConfig `yaml:"github"`
-	JWT    JWTConfig    `yaml:"jwt"`
-	Cookie CookieConfig `yaml:"cookie"`
+	GitHub          GitHubConfig `yaml:"github"`
+	JWT             JWTConfig    `yaml:"jwt"`
+	Cookie          CookieConfig `yaml:"cookie"`
+	FrontendBaseURL string       `yaml:"frontend_base_url"`
 }
 
 type GitHubConfig struct {
@@ -40,4 +41,20 @@ func (c Config) WithDefaults() Config {
 	}
 	c.JWT.TTL = time.Duration(c.JWT.TTLSeconds) * time.Second
 	return c
+}
+
+func (c Config) Validate() error {
+	if c.GitHub.ClientID == "" {
+		return ErrMissingGitHubClientID
+	}
+	if c.GitHub.ClientSecret == "" {
+		return ErrMissingGitHubClientSecret
+	}
+	if c.GitHub.RedirectURL == "" {
+		return ErrMissingGitHubRedirectURL
+	}
+	if c.JWT.Secret == "" {
+		return ErrMissingJWTSecret
+	}
+	return nil
 }

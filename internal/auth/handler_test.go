@@ -30,14 +30,34 @@ func (f fakeGitHubClient) FetchUser(ctx context.Context, accessToken string) (Us
 
 func newTestAuthHandler() *Handler {
 	cfg := Config{
-		JWT:    JWTConfig{Secret: "secret", TTLSeconds: 604800, TTL: 7 * 24 * time.Hour},
-		Cookie: CookieConfig{Name: "cr_auth", Secure: false},
+		GitHub:          GitHubConfig{ClientID: "client-id", ClientSecret: "client-secret", RedirectURL: "http://example.com/auth/github/callback"},
+		JWT:             JWTConfig{Secret: "secret", TTLSeconds: 604800, TTL: 7 * 24 * time.Hour},
+		Cookie:          CookieConfig{Name: "cr_auth", Secure: false},
+		FrontendBaseURL: "http://frontend.test",
 	}.WithDefaults()
 	service := NewService(cfg, fakeGitHubClient{
 		authURL: "https://github.com/login/oauth/authorize",
 		user:    User{ID: "github:123", GitHubID: 123, Login: "octocat", Name: "The Octocat", AvatarURL: "https://avatar"},
 	}, func() time.Time { return time.Unix(1000, 0) })
 	return NewHandler(service)
+}
+
+func TestHandler_LoginFailsWhenOAuthConfigMissing(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	cfg := Config{
+		JWT:    JWTConfig{Secret: "secret", TTLSeconds: 604800, TTL: 7 * 24 * time.Hour},
+		Cookie: CookieConfig{Name: "cr_auth", Secure: false},
+	}.WithDefaults()
+	RegisterRoutes(r, NewHandler(NewService(cfg, fakeGitHubClient{}, func() time.Time { return time.Unix(1000, 0) })))
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/auth/github/login?return_to=/", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want 503", w.Code)
+	}
 }
 
 func TestHandler_LoginRedirectsToGitHub(t *testing.T) {
@@ -69,6 +89,38 @@ func TestHandler_MeUnauthorizedWithoutCookie(t *testing.T) {
 
 	if w.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", w.Code)
+	}
+}
+
+func TestHandler_CallbackRedirectsToFrontend(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	h := newTestAuthHandler()
+	state, err := h.service.stateSigner.Sign("/posts/1", time.Unix(1000, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	RegisterRoutes(r, h)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/auth/github/callback?code=code-123&state="+state, nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusFound {
+		t.Fatalf("status = %d, want 302", w.Code)
+	}
+	if got := w.Header().Get("Location"); got != "http://frontend.test/posts/1" {
+		t.Fatalf("Location = %q", got)
+	}
+	if !strings.Contains(w.Header().Get("Set-Cookie"), "HttpOnly") {
+		t.Fatalf("Set-Cookie = %q", w.Header().Get("Set-Cookie"))
+	}
+}
+
+func TestService_RedirectURLFallsBackForInvalidFrontendBaseURL(t *testing.T) {
+	service := NewService(Config{FrontendBaseURL: "not a url"}.WithDefaults(), fakeGitHubClient{}, time.Now)
+	if got := service.RedirectURL("/posts/1"); got != "/posts/1" {
+		t.Fatalf("RedirectURL = %q", got)
 	}
 }
 

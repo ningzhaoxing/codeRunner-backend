@@ -10,7 +10,8 @@ func routeEngine() *gin.Engine {
 
 	r.Use(gin.Recovery())
 	r.Use(cors.New(cors.Config{
-		AllowAllOrigins:  true,
+		AllowOriginFunc:  func(origin string) bool { return origin != "" },
+		AllowCredentials: true,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Agent-API-Key"},
 		ExposeHeaders:    []string{"Content-Length"},

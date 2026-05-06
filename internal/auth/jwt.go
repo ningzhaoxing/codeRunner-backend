@@ -55,7 +55,6 @@ func (m *JWTManager) Parse(tokenString string, now time.Time) (User, error) {
 	oldTimeFunc := jwt.TimeFunc
 	jwt.TimeFunc = func() time.Time { return now }
 	defer func() { jwt.TimeFunc = oldTimeFunc }()
-
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(tk *jwt.Token) (interface{}, error) {
 		if _, ok := tk.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method")

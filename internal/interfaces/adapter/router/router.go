@@ -4,7 +4,7 @@ import (
 	"codeRunner-siwu/internal/agent"
 	agenthandler "codeRunner-siwu/internal/agent/handler"
 	serverService "codeRunner-siwu/internal/application/service/server"
-	"codeRunner-siwu/internal/auth"
+	browserauth "codeRunner-siwu/internal/auth"
 	"codeRunner-siwu/internal/interfaces/controller"
 	ctrlFeedback "codeRunner-siwu/internal/interfaces/controller/feedback"
 	serverHandler "codeRunner-siwu/internal/interfaces/controller/server"
@@ -14,13 +14,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-func ApiRouter(r *gin.Engine, svc serverService.ServerService, authHandler *auth.Handler) {
+func ApiRouter(r *gin.Engine, svc serverService.ServerService, authHandler *browserauth.Handler) {
 	r.GET("/ws", controller.APIs.CodeRunnerSrv.HandleServer())
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	r.POST("/execute", serverHandler.ExecuteHandler(svc, 30*time.Second))
 	r.POST("/api/feedback", ctrlFeedback.HandleFeedback(controller.APIs.FeedbackSvc))
 	if authHandler != nil {
-		auth.RegisterRoutes(r, authHandler)
+		browserauth.RegisterRoutes(r, authHandler)
 	}
 }
 
